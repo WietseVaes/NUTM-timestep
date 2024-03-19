@@ -1,10 +1,10 @@
 include("myquad.jl")
 include("myCheb.jl")
 
-function naive_ft(f,s,k,N)
+function naive_ft(f,s,k)
     
     g = x -> exp.(-1im*k .* x).*map(f,x)
-    k_amp = Clen_Curt(g,s,N)
+    k_amp = Trap(g,s)
     
     return k_amp
     
@@ -40,6 +40,3 @@ function IBP_ft(f,k,N,Nd)
    return res 
     
 end
-
-using NBInclude
-nbexport("myft.jl", "myft.ipynb")

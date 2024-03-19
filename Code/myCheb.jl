@@ -311,6 +311,3 @@ function F_der_sinc(x,N)
     end
     return Dsinc
 end
-
-using NBInclude
-nbexport("myCheb.jl", "myCheb.ipynb")

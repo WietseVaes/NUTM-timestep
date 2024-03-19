@@ -19,7 +19,7 @@ end
 
 function grid_weight_find(a,b)
     
-    J = Matrix(SymTridiagonal(a,b[1:(end-1)]))
+    J = SymTridiagonal(a,b[1:(end-1)])
     
     xgrid, U = eigen(J);
     
