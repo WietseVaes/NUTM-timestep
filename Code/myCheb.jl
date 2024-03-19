@@ -91,8 +91,8 @@ function Ultra_spherical_coeff(f, N = 100, λ = 0)
         a[1] = 0;
     end
     
-    xgrid, w, U = Cheb_w_x(a,b)
-    
+    xgrid, w, U = Cheb_x_w(a,b)
+
     D = diagm(sqrt.(w));
 
     c = (U*D)*map(f,xgrid)
