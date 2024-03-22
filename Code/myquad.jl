@@ -17,9 +17,9 @@ function curv(c::Function,a::Number,b::Number,w::Function,N::Number)
     curv(c,a,b,w,N,0,0)
 end
 
-function grid_weight_find(a,b)
+function Gauss_grid_weights(a,b)
     
-    J = Matrix(SymTridiagonal(a,b[1:(end-1)]))
+    J = SymTridiagonal(a,b[1:(end-1)]);
     
     xgrid, U = eigen(J);
     
@@ -164,7 +164,7 @@ function Laguerre_quad(f_o,s)
     
     a = collect(2 .* K .- 1) 
     b = collect(-K)
-    x, w, uu = Cheb_x_w(a,b)
+    x, w, uu = Gauss_grid_weights(a,b)
     
     res = sum(w .* map(f,x))
     
@@ -189,7 +189,7 @@ function two_sided_Laguerre_quad(f_o,s)
     
     a = collect(2 .* K .- 1) 
     b = collect(-K)
-    x, w, uu = grid_weight_find(a,b)
+    x, w, uu = Gauss_grid_weights(a,b)
     
     res = sum(w .* map(f,x)) + sum(w .* map(f_oppo,x))
     
@@ -212,7 +212,7 @@ function Hermite_quad(f_o,s)
 
     a = zeros(N);
     b = sqrt.((1:N) ./ 2)
-    x, w, uu = grid_weight_find(a,b)
+    x, w, uu = Gauss_grid_weights(a,b)
     
     w *= sqrt(pi) # multiply by int of e^(-x^2)
 

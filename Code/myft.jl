@@ -1,18 +1,19 @@
 include("myquad.jl")
 include("myCheb.jl")
+include("Cheb.jl")
 
 function naive_ft(f,s,k)
     
-    g = x -> exp.(-1im*k .* x).*map(f,x)
-    k_amp = Trap(g,s)
+    g = x -> exp.(-1im * k .* x) .* f.(x)
+    k_amp = Clen_Curt(g,s)
     
     return k_amp
     
 end
 
-function IBP_ft(f,k,N,Nd)
+function IBP_ft(f,k,Nd)
     
-    # Function f
+    # Ultrafun f
     
     # Frequency k
     
@@ -22,20 +23,16 @@ function IBP_ft(f,k,N,Nd)
     
     # Easily made faster.
     
+    g = x-> exp.(-1im .* k .* x);
     
-    x = -1:2:1;
-    
-    g(x) = exp.(-1im .* k .* x);
-    
-    res = 1im ./ k .* (g(1) .* f(1) - g(-1) .* f(-1))
+    res = 1im * (g(1) * f(1) - g(-1) * f(-1)) ./ k
     
     for i1 = 1:Nd
-        
-        uk = Cheb_Der(f,x,i1,N);
-        
-        res += (-1)^i1 * (1im ./ k) .^ (i1+1) .* (g(1) .* uk[2] - g(-1) .* uk[1])
+        Df = Diff(f)
+        (-1im)^(i1-1) .* (g(1) * Df(1) - g(-1) * Df(-1)) ./ ((k) .^ (i1+1))|>display
+        res += (-1im)^(i1-1) .* (g(1) * Df(1) - g(-1) * Df(-1)) ./ ((k) .^ (i1+1))
+        f = Df
     end
-    
     
    return res 
     

@@ -2,6 +2,9 @@ using SparseArrays, LinearAlgebra
 
 include("myquad.jl")
 
+function sp(x::Vector)
+    BigFloat.(x,256)
+end
 function sp(x::Real)
      BigFloat.(x,256)
 end
@@ -54,7 +57,7 @@ function Cheb_poly(N,x,λ)
     return T
 end
 
-function Cheb_x_w(a,b)
+function Gauss_grid_weights(a,b)
     
     J = Matrix(SymTridiagonal(a,b[1:(end-1)]))
     
@@ -91,7 +94,7 @@ function Ultra_spherical_coeff(f, N = 100, λ = 0)
         a[1] = 0;
     end
     
-    xgrid, w, U = Cheb_x_w(a,b)
+    xgrid, w, U = Gauss_grid_weights(a,b)
 
     D = diagm(sqrt.(w));
 
@@ -206,7 +209,7 @@ function Der_sinc(x,N)
     
     # f^(n) = -int_0^1 t^n cos(tx+n*pi/2)dt
     
-    s = curv(x -> x,0,1, x ->  1)
+    s = curv(x -> x,0,1, x ->  1,100)
     
     n = length(x);
     Dsinc = zeros(n,N+1)
@@ -216,7 +219,7 @@ function Der_sinc(x,N)
         g = (t,x) -> t.^i1 .* cos.(t .* x .+ i1 * pi/2)
         
         for i2 = 1:n
-            Dsinc[i2,i1+1] = Clen_Curt(t -> g(t,x[i2]),s,100)
+            Dsinc[i2,i1+1] = Clen_Curt(t -> g(t,x[i2]),s)
         end
     end
     return Dsinc
