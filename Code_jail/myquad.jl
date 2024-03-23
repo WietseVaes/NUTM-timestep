@@ -3,7 +3,7 @@ using LinearAlgebra
 #   Extra stuff
 #   ≡≡≡≡≡≡≡≡≡≡≡≡≡
 
-struct curv
+mutable struct curv
     c::Function # Curve
     a::Number # Start value  
     b::Number # End value
@@ -110,10 +110,10 @@ function m_Filon_Clen_Curt(f_o,s)
     resb = 0;
 
     for i1 = 1:(M-1)
-        sa = curv(x->x,mua[i1],mua[i1+1],x->1)
-        sb = curv(x->x,mub[i1],mub[i1+1],x->1)
-        resa = resa + Clen_Curt(f,sa,N);
-        resb = resb + Clen_Curt(f,sb,N);
+        sa = curv(x->x,mua[i1],mua[i1+1],x->1,N,M,q)
+        sb = curv(x->x,mub[i1],mub[i1+1],x->1,N,M,q)
+        resa = resa + Clen_Curt(f,sa);
+        resb = resb + Clen_Curt(f,sb);
     end
 
     if s.a == 0

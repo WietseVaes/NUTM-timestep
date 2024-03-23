@@ -1,10 +1,4 @@
 using  Plots, LinearAlgebra
-mutable struct curv
-    c # Curve
-    a # Start value
-    b # End value
-    w # Weights for integration
-end 
 
 function stand_int(f,s)
     
@@ -37,7 +31,8 @@ function int_err_plot(meth,f,true_res,s, NN = 1000-1)
     counter = NN
 
     for i1 = 1:NN
-        res[i1] = meth(f,s,i1+1) - true_res
+        s.N = i1+1
+        res[i1] = meth(f,s) - true_res
         if isnan(res[i1])
             counter = i1-1
             break
