@@ -2,16 +2,6 @@ using SparseArrays, LinearAlgebra
 
 include("myquad.jl")
 
-function sp(x::Vector)
-    BigFloat.(x,256)
-end
-function sp(x::Real)
-     BigFloat.(x,256)
-end
-function sp(x::Complex)
-    sp.(real.(x)) + 1im * sp.(imag.(x))
-end
-
 #   Chebyshev discrete Polynomials at x and Coefficients
 #   ≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡
 
