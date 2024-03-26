@@ -21,19 +21,14 @@ function IBP_ft(f,k,Nd)
     
     # Number of Derivatives Nd
     
-    # Easily made faster.
-    
     g = x-> exp.(-1im .* k .* x);
-    
-    res = 1im * (g(1) * f(1) - g(-1) * f(-1)) ./ k
-    
-    for i1 = 1:Nd
-        Df = Diff(f)
-        (-1im)^(i1-1) .* (g(1) * Df(1) - g(-1) * Df(-1)) ./ ((k) .^ (i1+1))|>display
-        res += (-1im)^(i1-1) .* (g(1) * Df(1) - g(-1) * Df(-1)) ./ ((k) .^ (i1+1))
-        f = Df
+    res = k .* 0
+    for i1 = 0:Nd
+        res += (-1. * 1im)^(i1-1) .* (g(1) * f(1) - g(-1) * f(-1)) ./ ((k) .^ (i1+1))
+        f = Diff(f)
     end
-    
+    s = curv(x->x,-1,1,x->1,200)
+    res += (-1im)^(Nd+1) .* Clen_Curt(x -> f.(x) .* g.(x),s) ./ ((k) .^ (Nd+1))
    return res 
     
 end
