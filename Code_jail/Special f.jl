@@ -28,7 +28,7 @@ end
 
 P(w, x, t, k) = begin
     result = exp(x * Φ(w, x, t, k))
-    results ≈ 0.0 > 0 : result
+    result ≈ 0.0 ? 0 : result
 end
 
 function kk0(w, x, t)
@@ -247,7 +247,6 @@ function FullPath(w, xx, tt)
     end
     K0, close, paths = SDPaths(w, xx, tt) # Correct
     flatpath = flattener(paths)
-    cpts = ConnectPts(GlobalR(w, xx, tt), w) # Correct
 
     connect = []
     category = []
@@ -272,8 +271,10 @@ function FullPath(w, xx, tt)
     return Deformation(connect,category)
 end
 
-function plot_paths(path,cate)
+function DomainPlot(D::Deformation)
     plot();
+    path = D.pp;
+    cate = D.cc
     CP_label = "CP";
     inf_label = "inf";
     CP_ext_label = "CP_ext";
@@ -299,7 +300,7 @@ function plot_paths(path,cate)
     plot!()|>display
 end
 
-function plot_D(D::Deformation)
+function NumericalDomainPlot(D::Deformation)
     Legendre_label = "Legendre";
     Clen_Curt_label = "Clenshaw-Curtis";
     plot()
@@ -382,6 +383,7 @@ function Integrand(w, xx, tt, m)
 end
 
 function SpecialFunction(w, xx, tt, m, N)
+    tt *= -1im
     n = length(w) + 1
     w = real(xx) >= 0. ? w : [w[i] * (-1)^(i + 1) for i in 1:length(w)];
     integrand, DD = Integrand(w, sign(real(xx)) * xx * tt^(-1/n), tt, m);
@@ -390,5 +392,5 @@ function SpecialFunction(w, xx, tt, m, N)
     vals = extra_c * My_Integrate(integrand, DD,N)
     #vals -=  (real(xx) < 0 && m < 0)? 2 * π * im * Residue(z -> (im * z)^m * P(w, xx * tt^(-1/n), tt, z), 0) : 0
     
-    1 / (2 * π) * tt^(-(m + 1) / n) * vals
+   tt^(-(m + 1) / n) * vals
 end
