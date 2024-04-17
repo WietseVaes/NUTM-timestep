@@ -395,6 +395,7 @@ function SpecialFunction(w, xx, tt, m, N)
 
     extra_c = real(xx) < 0. ? (-1)^m : 1;
     vals = extra_c * My_Integrate(integrand, DD,N)
+    
     vals -=  (real(xx) < 0 && m < 0) ? 2 * π * 1im * Residue(z -> (1im * z)^m * P(w, xx * tt^(-1/n), tt, z), 0) : 0
     
    tt^(-(m + 1) / n) * vals
