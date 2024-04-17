@@ -382,6 +382,11 @@ function Integrand(w, xx, tt, m)
     return integrand, DD
 end
 
+function Residue(f,z)
+    s = curv( t -> exp.(1im*t), 0, 2*π, t -> 1im*exp.(1im*t),100)
+    Clen_Curt(f,s)/(2*π*1im)
+end
+
 function SpecialFunction(w, xx, tt, m, N)
     tt *= -1im
     n = length(w) + 1
@@ -390,7 +395,7 @@ function SpecialFunction(w, xx, tt, m, N)
 
     extra_c = real(xx) < 0. ? (-1)^m : 1;
     vals = extra_c * My_Integrate(integrand, DD,N)
-    #vals -=  (real(xx) < 0 && m < 0)? 2 * π * im * Residue(z -> (im * z)^m * P(w, xx * tt^(-1/n), tt, z), 0) : 0
+    vals -=  (real(xx) < 0 && m < 0) ? 2 * π * 1im * Residue(z -> (1im * z)^m * P(w, xx * tt^(-1/n), tt, z), 0) : 0
     
    tt^(-(m + 1) / n) * vals
 end
