@@ -1,5 +1,6 @@
 using LinearAlgebra, FastGaussQuadrature
 include("..\\Code_jail\\Misc.jl")
+include("..\\Code_jail\\myquad.jl")
 
 function OrderRoots(x)
     angles = angle.(x)
@@ -50,7 +51,6 @@ end
 
 function ArgD(w, x, t)
     arg = angle.(DDΦ(w, x, t, kk0(w, x, t)))
-    return [arg]
 end
 
 function mod_offset(x, m, offset)
@@ -59,7 +59,7 @@ end
 
 function Dirs(w, x, t)
     argd = ArgD(w, x, t)
-    return mod_offset(-argd[1] ./ 2 .+ π / 2, π, -π / 2)
+    return mod_offset(-argd ./ 2 .+ π / 2, π, -π / 2)
 end
 
 function ConnectPts(R, w)
@@ -241,7 +241,7 @@ function Deformation(path::Vector,cate::Vector)
 end
 
 function FullPath(w, xx, tt)
-    if abs(xx) < 0.1-eps()
+    if abs(xx) < 0.1-eps() || isempty(kk0(w,xx,tt))
         path, cate = SmallXPath(w, xx, tt)
         return Deformation(path, cate)
     end
@@ -352,33 +352,29 @@ function My_Integrate(int_f,Defor,N)
     for i1 = 1:length(Defor.tt)
 
         s = curv(Defor.path[i1],Defor.tt[i1][1],Defor.tt[i1][end],Defor.Dpath[i1],N)
-        f = stand_int(int_f,s)
 
         if Defor.meth[i1] == "Legendre"
 
+            f = stand_int(int_f,s)
+            
             x, w = gausslegendre(N);
+
+            res += dot(w,f.(x))
            
         elseif Defor.meth[i1] == "Clenshaw-Curtis"
 
-            if mod(N,2) != 0
-               N -= 1 
-            end
-            
-            n = 0:N/2;
-            D = 2 * cos.(2* transpose(n) .* n * pi/N)/N;
-            D[1,:] = D[1,:] .* 0.5;
-            d = [1; 2 ./ (1 .- (2:2:N).^2)];
-            w = D * d;
-            x = cos.( (0:N) * π / N );
+            res += Clen_Curt(int_f,s)
+        
         end
-        res += dot(w,f.(x))
     end
     return res
 end
 
 function Integrand(w, xx, tt, g)
     DD = FullPath(w, xx, tt)
-    integrand = z -> g(z) * P(w, xx+eps(), tt, z)
+    n = length(w) + 1
+    integrand = z -> g(z * tt^(-1/n)) * P(w, xx+eps(), tt, z)
+
     return integrand, DD
 end
 
@@ -395,10 +391,10 @@ function SpecialFunction(w::Vector, xx::Number, tt::Number, m::Number, N::Number
 
     extra_c = real(xx) < 0. ? (-1)^m : 1;
     vals = extra_c * My_Integrate(integrand, DD,N)
+
+    vals -=  (real(xx) < 0 && m < 0) ? 2 * π * 1im * Residue(z -> g(z * tt^(-1/n)) * P(w, xx * tt^(-1/n), tt, z), 0) : 0
     
-    vals -=  (real(xx) < 0 && m < 0) ? 2 * π * 1im * Residue(z -> (1im * z)^m * P(w, xx * tt^(-1/n), tt, z), 0) : 0
-    
-   tt^(-(m + 1) / n) * vals
+    (tt)^(-1/n) * vals
 end
 
 function SpecialFunction(w::Vector, xx::Number, tt::Number, m::Number, N::Number)
