@@ -50,6 +50,12 @@ function Clen_Curt(f,s)
     if mod(N,2) != 0
        N -= 1 
     end
+
+    fc = UltraFun(0,f,100)
+
+    if sum(abs.(fc.c[(end-1:end)])) > 1e-14
+        @warn "The integrand is incorrect or not approximated well enough"
+    end
     
     f_int = stand_int(f,s)
     n = 0:N/2;
@@ -59,10 +65,47 @@ function Clen_Curt(f,s)
     w = D * d;
     x = cos.( (0:N) * π / N );
     w = [w;w[length(w)-1:-1:1]];
-    res = sum(map(f_int,x) .* w)
+    res = dot(w,f_int.(x))
     
     return res
 end
+
+function Clen_Curt_slow(f_int,s)
+    
+    # function f
+    
+    #object s with: curve - c
+    #               start value - a
+    #               end value - b
+    #               curve derivative - w
+    #               number of quadrature points - N
+    
+    N = s.N
+
+    if mod(N,2) != 0
+       N -= 1 
+    end
+    
+    f = stand_int(f_int,s)
+
+    fc = UltraFun(0,f,100)
+
+    if sum(abs.(fc.c[(end-1:end)])) > 1e-14
+        @warn "The integrand is incorrect or not approximated well enough"
+    end
+
+    n = 0:N/2;
+    D = 2 * cos.(2* transpose(n) .* n * pi/N)/N;
+    D[1,:] = D[1,:] .* 0.5;
+    d = [1; 2 ./ (1 .- (2:2:N).^2)];
+    w = D * d;
+    x = cos.( (0:N) * π / N );
+    w = [w;w[length(w)-1:-1:1]];
+    res = dot(w,f.(x))
+    
+    return res
+end
+
 
 function m_Filon_Clen_Curt(f_o,s)
     
