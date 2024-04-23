@@ -376,9 +376,9 @@ function My_Integrate(int_f,Defor,N)
     return res
 end
 
-function Integrand(w, xx, tt, m)
+function Integrand(w, xx, tt, m, g)
     DD = FullPath(w, xx, tt)
-    integrand = z -> (1im * z)^m * P(w, xx+eps(), tt, z)
+    integrand = z -> (g(z))^m * P(w, xx+eps(), tt, z)
     return integrand, DD
 end
 
@@ -387,11 +387,11 @@ function Residue(f,z)
     Clen_Curt(f,s)/(2*π*1im)
 end
 
-function SpecialFunction(w, xx, tt, m, N)
+function SpecialFunction(w::Vector, xx::Number, tt::Number, m::Number, N::Number,g::Function)
     tt *= -1im
     n = length(w) + 1
     w = real(xx) >= 0. ? w : [w[i] * (-1)^(i + 1) for i in 1:length(w)];
-    integrand, DD = Integrand(w, sign(real(xx)) * xx * tt^(-1/n), tt, m);
+    integrand, DD = Integrand(w, sign(real(xx)) * xx * tt^(-1/n), tt, m, g);
 
     extra_c = real(xx) < 0. ? (-1)^m : 1;
     vals = extra_c * My_Integrate(integrand, DD,N)
@@ -399,4 +399,9 @@ function SpecialFunction(w, xx, tt, m, N)
     vals -=  (real(xx) < 0 && m < 0) ? 2 * π * 1im * Residue(z -> (1im * z)^m * P(w, xx * tt^(-1/n), tt, z), 0) : 0
     
    tt^(-(m + 1) / n) * vals
+end
+
+function SpecialFunction(w::Vector, xx::Number, tt::Number, m::Number, N::Number)
+    g = z -> 1im*z;
+    SpecialFunction(w, xx, tt, m, N,g)
 end
