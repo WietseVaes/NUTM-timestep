@@ -376,9 +376,9 @@ function My_Integrate(int_f,Defor,N)
     return res
 end
 
-function Integrand(w, xx, tt, m, g)
+function Integrand(w, xx, tt, g)
     DD = FullPath(w, xx, tt)
-    integrand = z -> (g(z))^m * P(w, xx+eps(), tt, z)
+    integrand = z -> g(z) * P(w, xx+eps(), tt, z)
     return integrand, DD
 end
 
@@ -391,7 +391,7 @@ function SpecialFunction(w::Vector, xx::Number, tt::Number, m::Number, N::Number
     tt *= -1im
     n = length(w) + 1
     w = real(xx) >= 0. ? w : [w[i] * (-1)^(i + 1) for i in 1:length(w)];
-    integrand, DD = Integrand(w, sign(real(xx)) * xx * tt^(-1/n), tt, m, g);
+    integrand, DD = Integrand(w, sign(real(xx)) * xx * tt^(-1/n), tt, g);
 
     extra_c = real(xx) < 0. ? (-1)^m : 1;
     vals = extra_c * My_Integrate(integrand, DD,N)
@@ -402,6 +402,6 @@ function SpecialFunction(w::Vector, xx::Number, tt::Number, m::Number, N::Number
 end
 
 function SpecialFunction(w::Vector, xx::Number, tt::Number, m::Number, N::Number)
-    g = z -> 1im*z;
+    g = z -> (1im*z).^m
     SpecialFunction(w, xx, tt, m, N,g)
 end
