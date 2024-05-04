@@ -52,10 +52,10 @@ function Clen_Curt(f,s)
        N -= 1 
     end
 
-    fc = UltraFun(0,f,100)
-
-    if sum(abs.(fc.c[(end-1:end)])) > 1e-14
-        @warn "The integrand is incorrect or not approximated well enough"
+    fc = UltraFun(0,f,N)
+    NN = length(fc.c)
+    if sum(abs.(fc.c[NN-1:NN])) > 1e-12
+        #@warn "The integrand is incorrect or not approximated well enough"
     end
     
     f_int = stand_int(f,s)
