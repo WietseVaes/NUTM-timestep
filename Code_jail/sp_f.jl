@@ -206,20 +206,6 @@ function NumericalDomainPlot(D::Deformation)
     
     plot!()|>display
 end
-
-struct Danger_zone
-    # Deformation points of interest [inf, CP_ent_ext,CP_ent_ext,...,CP,..,CP_ent_ext,CP_ent_ext,inf]
-    Defor_points::Vector #Done
-    # Is the critical point truely in this danger zone?
-    CP_in::Bool # Done 
-    #direction of bd vector 1 (counter-clockwise) or -1 (clockwise)?
-    dir::Number # Done
-    # Index correlation
-    index::Number # Done  
-    # Is this next to the start or exit region?
-    start::Bool # Done  
-    stop::Bool # Done 
-end
 ω(w) = (z) -> sum([w[i] .* z.^(i + 1) for i in 1:length(w)])
 DDω(w) = (z) -> sum([(i + 1) * i .* w[i] .* z.^(i-1) for i in 1:length(w)])
 #Correct
@@ -397,103 +383,86 @@ function CP_assigner(K0,bd)
 end
 
 function get_direction(CP_in,CP_bd,start_bd_ind,stop_bd_ind)
-    dir = 1
-    ind = 0;
-    stop_ind = 0;
-
+    dir = 1 # Counter clockwise
     # This can be done better
-    if start_bd_ind[1] == 1 && start_bd_ind[2] == length(CP_in)
-        ind = start_bd_ind[1]
-        stop_ind = stop_bd_ind[1]
-    elseif stop_bd_ind[1] == 1 && stop_bd_ind[2] == length(CP_in)
-        ind = start_bd_ind[2]
-        stop_ind = stop_bd_ind[2]
-    else
-        ind = start_bd_ind[2]
-        stop_ind = stop_bd_ind[1]
+
+    if length(CP_in) == 2
+        if CP_in[1]
+            return 0, 1, 1
+        else
+            return 0, 2, 2
+        end
     end
 
-    if ind == stop_ind && CP_in[ind]
-        return dir
+    ind = start_bd_ind[1]
+    if mod(ind+(dir-1),length(CP_in))+1 == start_bd_ind[2]
+        ind = start_bd_ind[2]
     end
 
-    while ind != stop_ind && CP_in[ind]
-        ind = mod(ind,length(CP_in))+dir
-        if  ind == stop_ind
-            return dir
+    if ind in stop_bd_ind && CP_in[ind]
+        return dir, starting, ind 
+    end
+
+    while ~(ind in stop_bd_ind) && CP_in[ind]
+        ind = mod(ind+(dir-1),length(CP_in))+1
+        if  ind in stop_bd_ind
+            return dir, starting, ind
         end 
     end
 
     dir = -1
     # This can be done better
-    if start_bd_ind[1] == 1 && start_bd_ind[2] == length(CP_in)
+    ind = start_bd_ind[1]
+    ind = start_bd_ind[1]
+    if mod(ind+(dir-1),length(CP_in))+1 == start_bd_ind[2]
         ind = start_bd_ind[2]
-        stop_ind = stop_bd_ind[2]
-    elseif stop_bd_ind[1] == 1 && stop_bd_ind[2] == length(CP_in)
-        ind = start_bd_ind[1]
-        stop_ind = stop_bd_ind[1]
-    else
-        ind = start_bd_ind[1]
-        stop_ind = stop_bd_ind[2]
+    end
+    starting = ind
+
+    if ind in stop_bd_ind && CP_in[ind]
+        return dir, starting, ind 
     end
 
-    if ind == stop_ind && CP_in[ind]
-        return dir
-    end
-    while ind != stop_ind && CP_in[ind]
-        ind = mod(ind-2,length(CP_in))+1
-        if  ind == stop_ind
-            return dir
+    while ~(ind in stop_bd_ind) && CP_in[ind]
+        ind = mod(ind+(dir-1),length(CP_in))+1
+        if  ind in stop_bd_ind
+            return dir, starting, ind 
         end 
     end
     @error "No path found, we need to go through an area with no CP in it."
     dir = 1
     # This can be done better
-    if start_bd_ind[1] == 1 && start_bd_ind[2] == length(CP_in)
-        ind = start_bd_ind[1]
-        stop_ind = stop_bd_ind[1]
-    elseif stop_bd_ind[1] == 1 && stop_bd_ind[2] == length(CP_in)
+    ind = start_bd_ind[1]
+    if mod(ind+(dir-1),length(CP_in))+1 == start_bd_ind[2]
         ind = start_bd_ind[2]
-        stop_ind = stop_bd_ind[2]
-    else
-        ind = start_bd_ind[2]
-        stop_ind = stop_bd_ind[1]
+    end
+    starting = ind
+    if ind in stop_bd_ind && CP_bd[ind] != 0.0
+        return dir, starting, ind 
     end
 
-    if ind == stop_ind && CP_bd[ind] != 0.0
-        return dir
-    end
-
-    while ind != stop_ind && CP_bd[ind] != 0.0
-        ind = mod(ind,length(CP_in))+dir
-        if  ind == stop_ind
-            return dir
+    while ~(ind in stop_bd_ind) && CP_bd[ind] != 0.0
+        ind = mod(ind+(dir-1),length(CP_in))+1
+        if  ind in stop_bd_ind
+            return dir, starting, ind
         end 
     end
 
-    
-
     dir = -1
     # This can be done better
-    if start_bd_ind[1] == 1 && start_bd_ind[2] == length(CP_in)
+    ind = start_bd_ind[1]
+    if mod(ind+(dir-1),length(CP_in))+1 == start_bd_ind[2]
         ind = start_bd_ind[2]
-        stop_ind = stop_bd_ind[2]
-    elseif stop_bd_ind[1] == 1 && stop_bd_ind[2] == length(CP_in)
-        ind = start_bd_ind[1]
-        stop_ind = stop_bd_ind[1]
-    else
-        ind = start_bd_ind[1]
-        stop_ind = stop_bd_ind[2]
+    end
+    starting = ind
+    if ind in stop_bd_ind && CP_bd[ind] != 0.0
+        return dir, starting, ind 
     end
 
-    if ind == stop_ind && CP_bd[ind] != 0.0
-        return dir
-    end
-
-    while ind != stop_ind && CP_bd[ind] != 0.0
-        ind = mod(ind-2,length(CP_in))+1
-        if  ind == stop_ind
-            return dir
+    while ~(ind in stop_bd_ind) && CP_bd[ind] != 0.0
+        ind = mod(ind+(dir-1),length(CP_in))+1
+        if  ind in stop_bd_ind
+            return dir, starting, ind 
         end 
     end
     @warn "No path found, start or end is inbetween inescapable danger zones"
@@ -577,9 +546,11 @@ function Danger_zone_maker(inp::Input_sf)
     (CP_bd, CP_in) = CP_assigner(K0,bd)
     #dir
 
-    dir = get_direction(CP_in,CP_bd,start_bd_ind,stop_bd_ind)
+    dir, start_ind, stop_ind = get_direction(CP_in,CP_bd,start_bd_ind,stop_bd_ind)
     if length(w) == 1
         dir = Int(sign(angle2pi(stop)-angle2pi(start)));
+        start_ind = 1;
+        stop_ind = 1;
     end
     (CP_ent, CP_ext) = get_CP_ent_ext(inp,CP_bd)#Using bisection to get two intermediate steps
     #(CP_ent, CP_ext) = get_CP_ent_ext(inp,bd,CP_bd) #Using variance of Gaussian to estimate distance
@@ -597,19 +568,11 @@ function Danger_zone_maker(inp::Input_sf)
     end
     Defor_points = [[bdinf[i1][1];CP_ent[i1];CP_bd[i1];CP_ext[i1];bdinf[i1][2]] for i1 in 1:length(bdinf)]
     Defor_points = dir == 1 ? reverse.(Defor_points) : Defor_points;
-    Danger_zones = []
+    Defor_zones = []
     for i1 = 1:length(Defor_points)
-        start = false;
-        stop = false;
-        if i1 in start_bd_ind
-            start = true
-        end
-        if i1 in stop_bd_ind
-            stop = true
-        end
-        push!(Danger_zones, Danger_zone(Defor_points[i1],CP_in[i1],dir,i1,stop,start))
+        push!(Defor_zones, Defor_points[i1])
     end
-    return Danger_zones
+    return Defor_zones, dir, start_ind, stop_ind
 end
 function Danger_zone_small(inp::Input_sf)
     w = inp.w; x = inp.x; xθ = inp.xθ; t = inp.t; start = inp.start; stop = inp.stop;
@@ -625,9 +588,11 @@ function Danger_zone_small(inp::Input_sf)
     (CP_bd, CP_in) = CP_assigner(K0,bd)
     #dir
 
-    dir = get_direction(CP_in,CP_bd,start_bd_ind,stop_bd_ind)
+    dir, start_ind, stop_ind = get_direction(CP_in,CP_bd,start_bd_ind,stop_bd_ind)
     if length(w) == 1
         dir = Int(sign(angle2pi(stop)-angle2pi(start)));
+        start_ind = 1
+        stop_ind = 1;
     end
     (CP_ent, CP_ext) = get_CP_ent_ext_small(inp,bd)#Using bisection to get two intermediate steps
 
@@ -644,85 +609,27 @@ function Danger_zone_small(inp::Input_sf)
     end
     Defor_points = [[bdinf[i1][1];CP_ent[i1];CP_ext[i1];bdinf[i1][2]] for i1 in 1:length(bdinf)]
     Defor_points = dir == 1 ? reverse.(Defor_points) : Defor_points;
-    Danger_zones = []
+    Defor_zones = []
     for i1 = 1:length(Defor_points)
-        start = false;
-        stop = false;
-        if i1 in start_bd_ind
-            start = true
-        end
-        if i1 in stop_bd_ind
-            stop = true
-        end
-        push!(Danger_zones, Danger_zone(Defor_points[i1],CP_in[i1],dir,i1,stop,start))
+        push!(Defor_zones, Defor_points[i1])
     end
-    return Danger_zones
+    return Defor_zones, dir, start_ind, stop_ind
 end
 
-function start_stop_ind(Dzs)
-    n = length(Dzs)
-    dir = Dzs[1].dir
-    start_indi = [];
-    stop_indi = [];
-    if length(Dzs) == 2
-        if Dzs[1].CP_in
-            return (1,1)
-        else
-            return (2,2)
-        end
-    end
-
-    for i1 = 1:length(Dzs)
-        DZ = Dzs[i1];
-        if DZ.start
-            push!(start_indi,i1)
-        end
-        if DZ.stop
-            push!(stop_indi,i1)
-        end
-    end
-
-    if dir > 0
-        if start_indi[1] == 1 && start_indi[2] == n
-            start_ind = start_indi[2]
-            stop_ind = stop_indi[2]
-        elseif stop_indi[1] == 1 && stop_indi[2] == n
-            start_ind = start_indi[1]
-            stop_ind = stop_indi[1]
-        else
-            start_ind = start_indid[1]
-            stop_ind = stop_indi[2]
-        end
-    else
-        if start_indi[1] == 1 && start_indi[2] == n
-            start_ind = start_indi[1]
-            stop_ind = stop_indi[1]
-        elseif stop_indi[1] == 1 && stop_indi[2] == n
-            start_ind = start_indi[2]
-            stop_ind = stop_indi[2]
-        else
-            start_ind = start_indi[2]
-            stop_ind = stop_indi[1]
-        end
-    end
-    return start_ind, stop_ind
-end
 function FullPath(inp)
     w = inp.w; x = inp.x; t = inp.t; xθ = inp.xθ; wθ = inp.wθ
     if abs(x) < 0.1-eps() || isempty(kk0(inp))
-        Dzs = Danger_zone_small(inp::Input_sf)
-        small = true
+        Defor_zones, dir, start_ind, stop_ind = Danger_zone_small(inp)
+        small = true 
     else 
-        Dzs = Danger_zone_maker(inp); 
+        Defor_zones, dir, start_ind, stop_ind = Danger_zone_maker(inp); 
         small = false
     end
-    (start_ind,stop_ind) = start_stop_ind(Dzs);
-    dir = Dzs[1].dir;
-    i1 = start_ind;
+    i1 = start_ind
     connect = []
     category = []
     while true
-        Defor_p = Dzs[i1].Defor_points
+        Defor_p = Defor_zones[i1]
         NN = length(Defor_p);
         NCP = Int(ceil(NN/2));
 
@@ -754,7 +661,7 @@ function FullPath(inp)
         if i1 == stop_ind
             break
         end
-        i1 = Int(mod(i1+(dir-1),length(Dzs)) + 1)
+        i1 = Int(mod(i1+(dir-1),length(Defor_zones)) + 1)
     end
 
     return Deformation(connect,category,w,xθ,dir)
@@ -787,37 +694,79 @@ function Residue(g,f,z)
     Clen_Curt(F,s)/(2*π*1im)
 end
 
-function SpecialFunction(w::Vector, x::Number, t::Number,start::Number, stop::Number, m::Number, N::Number,gg::Function)
-    n = length(w) + 1
-    if real(stop^n*w[end]) < 0 || real(start^n*w[end]) < 0
-        @warn "Deformation cannot be made: exponential growth over real line"
+function My_Integrate(int_f,Defor,N)
+    res = 0im;
+    for i1 = 1:length(Defor.tt)
+        s = curv(Defor.path[i1],Defor.tt[i1][1],Defor.tt[i1][end],Defor.Dpath[i1],N)
+        if Defor.meth[i1] == "Legendre"
+            f = stand_int(int_f,s)
+            x, w = gausslegendre(N);
+            res += dot(w,f.(x))
+        elseif Defor.meth[i1] == "Clenshaw-Curtis"
+            res += Clen_Curt(int_f,s)
+        end
     end
-    base_inp = Input_sf(w,x * t^(-1/n)+ eps(),t,start,stop);
-    Dzs = Danger_zone_maker(base_inp)
-    init_dir = Dzs[1].dir
-
-    #Rotating
-    xθ = angle(x)
-    w = [ w[j] * (exp(-1im*xθ))^(j + 1) for j in 1:length(w)];
-    g = z -> gg(z * exp(-1im*xθ) * t^(-1/n))
-    start *= exp(1im*xθ);
-    stop *= exp(1im*xθ);
-    inp = Input_sf(w,x * t^(-1/n)+ eps(),t,start,stop);
-
-    #Get integrand
-    integrand, DD = Integrand(inp, g);
-    #DomainPlot(DD) |> display
-    vals = My_Integrate(integrand, DD,N)
-    if m != -1
-        vals -=  (init_dir * DD.dir < 0 && m < 0) ? 2 * π * 1im * Residue(z -> g(z), z-> P(inp, z), 0) : 0
-    else 
-        vals -=  (init_dir * DD.dir < 0 && m < 0) ? 2 * π * 1im ./ (1im* exp(-1im*xθ) * t^(-1/n)) : 0
-    end
-    
-    (t)^(-1/n) * exp(-1im*xθ) * vals
+    return res
 end
 
-function SpecialFunction(w::Vector, xx::Number, tt::Number, m::Number, N::Number)
+function Integrand(inp, g)
+    DD = FullPath(inp)
+    integrand = z -> g(z) * P(inp, z)
+    return integrand, DD
+end
+
+function Residue(g,f,z)
+    F = z -> g.(z).*f.(z)
+    s = curv( t -> z .+ exp.(1im*t), 0, 2*π, t -> 1im*exp.(1im*t),100)
+    Clen_Curt(F,s)/(2*π*1im)
+end
+
+function SpecialFunction(w::Vector, x::Vector, t::Vector,start::Number, stop::Number, m::Number, N::Number,gg::Function)
+    n = length(w) + 1
+    if real(start^n*w[end]) < 0
+        @warn "Deformation cannot be made: exponential growth at start"
+    end
+    if real(stop^n*w[end]) < 0
+        @warn "Deformation cannot be made: exponential growth at stop"
+    end
+    base_inp = Input_sf(w,x[1] * t[1]^(-1/n)+ eps(),t[1],start,stop);
+    DDD, init_dir, start_init_ind, stop_init_ind = Danger_zone_maker(base_inp)
+    Res = Complex.(zeros(length(x),length(t)))
+    #Rotating
+    for i1 = 1:length(x)
+        xθ = angle(x[i1])
+        w_i1 = [ w[j] * (exp(-1im*xθ))^(j + 1) for j in 1:length(w)];
+        start_i1 = start * exp(1im*xθ);
+        stop_i1 = stop * exp(1im*xθ);
+
+    #Get integrand
+        for i2 = 1:length(t)
+            g = z -> gg(z * exp(-1im*xθ) * t[i2]^(-1/n));
+            inp = Input_sf(w_i1,x[i1] * t[i2]^(-1/n)+ eps(),t[i2],start_i1,stop_i1);
+            integrand, DD = Integrand(inp, g);
+    #DomainPlot(DD) |> display
+            vals = My_Integrate(integrand, DD,N)
+            if m != -1
+                vals -=  (init_dir * DD.dir < 0 && m < 0) ? 2 * π * 1im * Residue(z -> g(z), z-> P(inp, z), 0) : 0
+            else 
+                vals -=  (init_dir * DD.dir < 0) ? 2 * π * 1im ./ (1im* exp(-1im*xθ) * t[i2]^(-1/n)) : 0
+            end
+            Res[i1,i2] = (t[i2])^(-1/n) * exp(-1im*xθ) * vals
+        end
+    end
+    return Res
+end
+
+function SpecialFunction(w::Vector, x::Number, t::Number,start::Number, stop::Number, m::Number, N::Number,gg::Function)
+    R = SpecialFunction(w, [x], [t],start, stop, m, N,gg)
+    R[1]
+end
+
+function SpecialFunction(w::Vector, xx::Vector, tt::Vector, m::Number, N::Number)
     g = z -> (1im*z).^m
     SpecialFunction(w, xx, tt,-1,1, m, N,g)
+end
+function SpecialFunction(w::Vector, xx::Number, tt::Number, m::Number, N::Number)
+    R = SpecialFunction(w, [xx], [tt], m, N)
+    R[1]
 end
