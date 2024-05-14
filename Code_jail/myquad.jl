@@ -32,7 +32,7 @@ function stand_int(f,s)
     Dtrans_func = (s.b-s.a)/2;
     trans_func = x -> (s.b + s.a)/2 + x * (s.b - s.a)/2 ;
     
-    g = x -> f_curv(trans_func(x)) * Dtrans_func; # map to [-1,1]
+    g = x -> f_curv(trans_func(x)) .* Dtrans_func; # map to [-1,1]
     return g
 end
 
@@ -52,11 +52,11 @@ function Clen_Curt(f,s)
        N -= 1 
     end
 
-    fc = UltraFun(0,f,N)
-    NN = length(fc.c)
-    if sum(abs.(fc.c[NN-1:NN])) > 1e-12
+    #fc = UltraFun(0,f,N)
+    #NN = length(fc.c)
+    #if sum(abs.(fc.c[NN-1:NN])) > 1e-12
         #@warn "The integrand is incorrect or not approximated well enough"
-    end
+    #end
     
     f_int = stand_int(f,s)
     n = 0:N/2;
