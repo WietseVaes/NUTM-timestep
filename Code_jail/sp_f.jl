@@ -1,7 +1,6 @@
-using LinearAlgebra, FastGaussQuadrature
+using LinearAlgebra, FastGaussQuadrature, Plots
 include("..\\Code_jail\\Misc.jl")
 include("..\\Code_jail\\myquad.jl")
-
 
 mutable struct Input_sf
     # Dispersion relation coefficients
@@ -18,7 +17,6 @@ mutable struct Input_sf
     start::Number
     stop::Number
 end
-
 function angle2pi(z)
     ang = angle.(z);
     if ang isa Array{<:Number,1}
@@ -35,7 +33,6 @@ end
 function polar(z)
     return (abs.(z), angle2pi(z))
 end
-
 function Input_sf(ww::Vector,xx::Number,tt::Number,start::Number,stop::Number)
     xxr, xxθ = polar(xx);
     wwr, wwθ = polar(w[end]);
@@ -62,7 +59,6 @@ function dom_sectioner(path)
     end
     return t_vals
 end
-
 function pwlinf_maker(t,t_vals,path_nodes,meth)
     for i1 = 1:(length(t_vals)-1)
         if (t_vals[i1] <= t && t <= t_vals[i1+1])
@@ -75,7 +71,6 @@ function pwlinf_maker(t,t_vals,path_nodes,meth)
         return (t-t_vals[1])/(t_vals[2]-t_vals[1])*path_nodes[2] + (t-t_vals[2])/(t_vals[1]-t_vals[2])*path_nodes[1]
     end
 end
-
 function Dpwlinf_maker(t,t_vals,path_nodes,meth)
     for i1 = 1:(length(t_vals)-1)
         if t >= t_vals[i1] && t <= t_vals[i1+1]
@@ -88,7 +83,6 @@ function Dpwlinf_maker(t,t_vals,path_nodes,meth)
         return 1/(t_vals[2]-t_vals[1])*path_nodes[2] + 1/(t_vals[1]-t_vals[2])*path_nodes[1]
     end
 end
-
 function fpath_maker(path,cate)
     t_vals = dom_sectioner(path)
     meth = [];
@@ -103,11 +97,10 @@ function fpath_maker(path,cate)
     end
     return funcs, Dfuncs, tt, meth
 end
-
 function Deformation(path::Vector,cate::Vector,w::Vector,xθ::Number,dir::Number)
     func, Dfunc, tt, meth = fpath_maker(path,cate)
     Deformation(path,cate,func, Dfunc, tt, meth,w,xθ,dir)
-end
+end 
 
 function DomainPlot(D::Deformation)
     pl = plot();
@@ -160,7 +153,6 @@ function DomainPlot(D::Deformation)
     plot!(r*cos(xθ),r*sin(xθ),c=:blue, linewidth=3, label = "Original int", xlims = (minimum([xr[1],yr[1]]), maximum([xr[2],yr[2]])), ylims = (minimum([xr[1],yr[1]]), maximum([xr[2],yr[2]])))
     pl = plot!()
 end
-
 function NumericalDomainPlot(D::Deformation)
     Legendre_label = "Legendre";
     Clen_Curt_label = "Clenshaw-Curtis";
@@ -206,9 +198,38 @@ function NumericalDomainPlot(D::Deformation)
     
     plot!()|>display
 end
+function PathPlot(D::Deformation, integrand::Function)
+    tpoint = D.tt 
+    pathf = D.path 
+    cate = D.cc
+    plot(layout = grid(1, 2),size=(1000,400))
+    funcs = [z->real.(z); z->imag.(z)]
+    titles = ["real"; "complex"]
+    for i3 = 1:2
+        gg = funcs[i3]
+        for i1 in 1:length(pathf)
+            ttend = tpoint[i1]
+            tt = ttend[1]:0.001:ttend[2];
+            plot!(tt,gg.(integrand.(pathf[i1].(tt))), color =:black, linewidth =2, label ="", subplot = i3,title = titles[i3])
+            for i2 = 1:2
+                if cate[i1][i2] == "CP"
+                    scatter!([ttend[i2]],[gg(integrand(pathf[i1](ttend[i2])))], color =:green, markersize =5, label = "", subplot = i3);
+                elseif cate[i1][i2] == "inf"
+                    scatter!([ttend[i2]],[gg(integrand(pathf[i1](ttend[i2])))], color =:red, markersize =5, label = "", subplot = i3)
+                elseif cate[i1][i2] == "CP_ext"
+                    scatter!([ttend[i2]],[gg(integrand(pathf[i1](ttend[i2])))], color =:orange, markersize =5, label = "", subplot = i3)
+                elseif cate[i1][i2] == "CP_ent"
+                    scatter!([ttend[i2]],[gg(integrand(pathf[i1](ttend[i2])))], color =:blue, markersize =5, label = "", subplot = i3)
+                end 
+            end
+        end
+        #scatter!(ttend,real.(integrand.(pathf[i1].(ttend))), color =:black, markersize =5, label = "");
+    end
+    plot!()|>display
+end 
+
 ω(w) = (z) -> sum([w[i] .* z.^(i + 1) for i in 1:length(w)])
 DDω(w) = (z) -> sum([(i + 1) * i .* w[i] .* z.^(i-1) for i in 1:length(w)])
-#Correct
 Φ(inp, k) = begin
     ww = inp.w; xx = inp.x; tt = inp.t;
     ω_kt = ω(ww)(k .* tt.^(-1 / (length(ww) + 1)))
@@ -239,7 +260,6 @@ function MinN(X, Y,N)
     end
     return out
 end
-
 function edgeθ(w)
     n = length(w)+1
     wend = w[end];
@@ -252,23 +272,25 @@ function edgeθ(w)
         i1 += 1
     end
     i1 = 1
-    while θ + i1*π/n < 2*π
+    while θ + i1*π/n <= 2*π
         append!(θs,θ + i1*π/n)
         i1 += 1
     end
-    return [θs[end-2]-2*π; θs[end-1]-2*π;θs[end]-2*π;θs;θs[1]+2*π;θs[2]+2*π;θs[3]+2*π]
-end
+    if (θs[1]≈ θs[end]-2*π)||(θs[end] ≈ θs[1]+2*π)
+        return [θs[end-2]-2*π; θs[end-1]-2*π;θs;θs[2]+2*π;θs[3]+2*π]
 
+    else    
+        return [θs[end-2]-2*π; θs[end-1]-2*π;θs[end]-2*π;θs;θs[1]+2*π;θs[2]+2*π;θs[3]+2*π]
+    end
+end
 function sortreal(xx)
     return sort(xx, by=real)
 end
-
 function OrderRoots(xx)
     angles = angle2pi(xx)
     sorted_indices = sortperm(angles)
     return xx[sorted_indices]
 end
-
 function kk0(inp)
     ww = inp.w; xx = inp.x; tt = inp.t; xxθ = inp.xθ
 
@@ -287,7 +309,6 @@ function kk0(inp)
     result = (E.values) #|> filter(k -> real(ww[end]*(k)^(m+1))<=0.01)
     return OrderRoots(result)
 end
-
 function find_indices(values, target)
     indices = Int[]
     for val in values
@@ -295,7 +316,6 @@ function find_indices(values, target)
     end
     return indices
 end
-
 function boundaryθ(inp)
     w = inp.w;
     n = length(w)+1;
@@ -318,7 +338,6 @@ function boundaryθ(inp)
     bd = [[θneigh_bis[i1][1],θneigh[i1][1],θneigh[i1][2],θneigh_bis[i1][3]] for i1 = (1+off_set):2:length(θneigh)]
     return bd
 end
-
 function containing_bds(inp,z)
     zr, zθ = polar(z);
     w = inp.w;
@@ -327,13 +346,11 @@ function containing_bds(inp,z)
         @warn "start or endpoint is in the danger zone."
     end
     θs = edgeθ(w);
-    N = real(w[end]*z^(n)) ≈ 0 ? 3 : 2
+    N = abs.(real(w[end]*z^(n))) < 1e-15 ? 3 : 2
     θ = sortreal.(MinN(zθ,θs,N));
-    real(w[end]*exp(1im*n*(θ[1][1]+zθ)/2))
     θ = real(w[end]*exp(1im*n*(θ[1][1]+zθ)/2)) >= 0 ? θ[1][1:2] : θ[1][2:3]
     θs[find_indices(θ, θs)] 
 end
-
 function next_to_indices(inp,z,BD)
     z_bd = containing_bds(inp,z)
     ind_bd = z_bd*0;
@@ -351,7 +368,6 @@ function next_to_indices(inp,z,BD)
     end
     return Int.(ind_bd |> filter(k -> k != 0))
 end
-
 function CP_assigner(K0,bd)
     CP_bd = complex.(zeros(length(bd)))
     CP_in = Vector{Bool}(undef, length(bd))
@@ -372,6 +388,18 @@ function CP_assigner(K0,bd)
             end
         end
     end
+    if sign(bd[1][1]) != sign(bd[1][4])
+        CP = K0[end]
+        CPr, CPθ = polar(CP)
+        if bd[1][2]+2*pi<=CPθ
+            CP_bd[1] = CP
+            CP_in[1] = true
+        end
+        if (bd[1][1] + 2*pi <=CPθ && CPθ <bd[1][2] + 2*pi)
+            CP_bd[1] = CP
+            CP_in[1] = false
+        end
+    end
     CP_bd_filt = (CP_bd) |> filter(x -> x == 0 )
     if length(CP_bd_filt) > 1
         @warn "Not all critical points are assigned"
@@ -381,13 +409,11 @@ function CP_assigner(K0,bd)
     end
     return CP_bd, CP_in
 end
-
 function get_direction(CP_in,CP_bd,start_bd_ind,stop_bd_ind)
     dir = 1 # Counter clockwise
     # This can be done better
-
     if length(CP_in) == 2
-        if CP_in[1]
+        if CP_bd[1]!= 0.0+0im
             return 0, 1, 1
         else
             return 0, 2, 2
@@ -429,7 +455,7 @@ function get_direction(CP_in,CP_bd,start_bd_ind,stop_bd_ind)
             return dir, starting, ind 
         end 
     end
-    @error "No path found, we need to go through an area with no CP in it."
+    @warn "No path found, we need to go through an area with no CP in it."
     dir = 1
     # This can be done better
     ind = start_bd_ind[1]
@@ -468,24 +494,43 @@ function get_direction(CP_in,CP_bd,start_bd_ind,stop_bd_ind)
     @warn "No path found, start or end is inbetween inescapable danger zones"
     return 0
 end
-
 function GlobalR(inp)
     w = inp.w; x = inp.x; t = inp.t;
     return (30 + abs(x)^2 + 1000 / length(w))^(1 / (length(w) + 1))
 end
-
-function get_CP_ent_ext(inp::Input_sf,K0::Vector)
-    x = inp.x; t = inp.t;
+function mod_offset(x, m, offset)
+    return offset .+ mod.(x .- offset, m)
+end
+function get_CP_ent_ext(inp::Input_sf,bd::Vector,K0::Vector,i1::Number)
+    x = inp.x; t = inp.t; w = inp.w;
     αs = angle.(map(k-> DDΦ(inp,k),K0)); 
-    θ_ent_ext = -αs ./ 2 .+ π/2;
-    R = 20*sqrt.(abs.(1 ./ (αs .* x)))
-    #R = 7*sqrt.(abs.(x ./ (αs .* t)))
+    θ_ent_ext = mod_offset.(-αs ./ 2 .+ π/2, π, -π / 2);
+    maxR=[]
+    if length(w) > 1
+        for i in 1:length(bd)
+            θ = bd[i][1]
+            ϕ = θ - θ_ent_ext[i]
+            γ = K0[i] * exp(-1im * θ_ent_ext[i])
+            s = imag(γ) / imag(exp(1im * ϕ))
+            r1 = s * exp(1im * ϕ) - γ
+            θ = bd[i][4]
+            ϕ = θ - θ_ent_ext[i]
+            γ = K0[i] * exp(-1im * θ_ent_ext[i])
+            s = imag(γ) / imag(exp(1im * ϕ))
+            r2 = s * exp(1im * ϕ) - γ
+            push!(maxR, minimum(abs.([r1, r2])))
+        end
+    else
+        maxR = [Inf,Inf]
+    end
 
+    scaleR = 20*sqrt.(abs.(1 ./ (αs .* x)))
+    R = [minimum([scaleR[i1];maxR[i1]]) for i1 = 1:length(scaleR)];
+    
     CP_ent = K0 + R.*exp.(1im .* θ_ent_ext)
     CP_ext = K0 - R.*exp.(1im .* θ_ent_ext)
     return CP_ent, CP_ext
 end
-
 function get_CP_ent_ext(inp::Input_sf,bd::Vector,K0::Vector)
     w = inp.w; x = inp.x; t = inp.t;
     θs = edgeθ(w)
@@ -513,7 +558,6 @@ function get_CP_ent_ext(inp::Input_sf,bd::Vector,K0::Vector)
     end
     return CP_ent, CP_ext
 end
-
 function get_CP_ent_ext_small(inp::Input_sf,bd::Vector)
     w = inp.w; x = inp.x; t = inp.t;
     θs = edgeθ(w)
@@ -523,14 +567,17 @@ function get_CP_ent_ext_small(inp::Input_sf,bd::Vector)
         θext[i1] = bd[i1][1]
         θent[i1] = bd[i1][4]
     end
-    Rsmall = 1
     if length(w) == 1;
-        CP_ent = Rsmall*1im .+ Rsmall*10*exp.(1im*θent)
-        CP_ext = Rsmall*1im .+ Rsmall*10*exp.(1im*θext)
+        Rsmall = 2.5
+        CP_ent = .5*1im .+ Rsmall*exp.(1im*θent)
+        CP_ext = .5*1im .+ Rsmall*exp.(1im*θext)
+    else
+        Rsmall = .5
+        CP_ent = Rsmall*exp.(1im*θent)
+        CP_ext = Rsmall*exp.(1im*θext)
     end
     return CP_ent, CP_ext
 end
-
 function Danger_zone_maker(inp::Input_sf)
     w = inp.w; x = inp.x; xθ = inp.xθ; t = inp.t; start = inp.start; stop = inp.stop;
     K0 = kk0(inp)
@@ -548,25 +595,27 @@ function Danger_zone_maker(inp::Input_sf)
 
     dir, start_ind, stop_ind = get_direction(CP_in,CP_bd,start_bd_ind,stop_bd_ind)
     if length(w) == 1
-        dir = Int(sign(angle2pi(stop)-angle2pi(start)));
-        start_ind = 1;
-        stop_ind = 1;
+        dir = -Int(sign(real(stop)-real(start)));
+        if dir == 0
+            dir = -Int(sign(imag(start)));
+        end
     end
-    (CP_ent, CP_ext) = get_CP_ent_ext(inp,CP_bd)#Using bisection to get two intermediate steps
+    (CP_ent, CP_ext) = get_CP_ent_ext(inp,bd,CP_bd,2)#Using bisection to get two intermediate steps
     #(CP_ent, CP_ext) = get_CP_ent_ext(inp,bd,CP_bd) #Using variance of Gaussian to estimate distance
 
     ## Defor_points
     bdinf = []
     Rinf = GlobalR(inp);
     if length(w) == 1
-        push!(bdinf, reverse(Rinf*exp.(1im*bd[1][[1,4]]) .+ CP_bd[1]))
-        push!(bdinf, reverse(Rinf*exp.(1im*bd[2][[1,4]]) .+ CP_bd[2]))
+        push!(bdinf, Rinf*exp.(1im*bd[1][[4,1]]) .+ CP_bd[1])
+        push!(bdinf, Rinf*exp.(1im*bd[2][[4,1]]) .+ CP_bd[2])
     else
         for i1 = 1:length(bd)
-            push!(bdinf, reverse(Rinf*exp.(1im*bd[i1][[1,4]])))
+            push!(bdinf, Rinf*exp.(1im*bd[i1][[4,1]]))
         end
     end
-    Defor_points = [[bdinf[i1][1];CP_ent[i1];CP_bd[i1];CP_ext[i1];bdinf[i1][2]] for i1 in 1:length(bdinf)]
+    CP_ent_ext = [[MinN([bdinf[i1][1]],[CP_ent[i1];CP_ext[i1]],1)[1];MinN([bdinf[i1][2]],[CP_ent[i1];CP_ext[i1]],1)[1]] for i1 in 1:length(bdinf)]
+    Defor_points = [[bdinf[i1][1];CP_ent_ext[i1][1];CP_bd[i1];CP_ent_ext[i1][2];bdinf[i1][2]] for i1 in 1:length(bdinf)]
     Defor_points = dir == 1 ? reverse.(Defor_points) : Defor_points;
     Defor_zones = []
     for i1 = 1:length(Defor_points)
@@ -590,9 +639,10 @@ function Danger_zone_small(inp::Input_sf)
 
     dir, start_ind, stop_ind = get_direction(CP_in,CP_bd,start_bd_ind,stop_bd_ind)
     if length(w) == 1
-        dir = Int(sign(angle2pi(stop)-angle2pi(start)));
-        start_ind = 1
-        stop_ind = 1;
+        dir = -Int(sign(real(stop)-real(start)));
+        if dir == 0
+            dir = -Int(sign(imag(start)));
+        end
     end
     (CP_ent, CP_ext) = get_CP_ent_ext_small(inp,bd)#Using bisection to get two intermediate steps
 
@@ -600,8 +650,8 @@ function Danger_zone_small(inp::Input_sf)
     bdinf = []
     Rinf = GlobalR(inp);
     if length(w) == 1
-        push!(bdinf, reverse(Rinf*exp.(1im*bd[1][[1,4]]) .+ CP_bd[1]/abs(CP_bd[1])*1.))
-        push!(bdinf, reverse(Rinf*exp.(1im*bd[2][[1,4]]) .+ CP_bd[2]/abs(CP_bd[2])*1.))
+        push!(bdinf, reverse(Rinf*exp.(1im*bd[1][[1,4]]) .+ CP_bd[1]/abs(CP_bd[1])*.5))
+        push!(bdinf, reverse(Rinf*exp.(1im*bd[2][[1,4]]) .+ CP_bd[2]/abs(CP_bd[2])*.5))
     else
         for i1 = 1:length(bd)
             push!(bdinf, reverse(Rinf*exp.(1im*bd[i1][[1,4]])))
@@ -636,7 +686,7 @@ function FullPath(inp)
         push!(connect,[Defor_p[1],Defor_p[2]])
         push!(category, ["inf","CP_ent"])
         if small
-            for i2 = 2:(NN-1)
+            for i2 = 2:(NN-2)
                 push!(connect,[Defor_p[i2],Defor_p[i2+1]])
                 push!(category, ["CP_ent","CP_ext"])
             end
@@ -665,7 +715,7 @@ function FullPath(inp)
     end
 
     return Deformation(connect,category,w,xθ,dir)
-end
+end 
 
 function My_Integrate(int_f,Defor,N)
     res = 0im;
@@ -681,47 +731,17 @@ function My_Integrate(int_f,Defor,N)
     end
     return res
 end
-
 function Integrand(inp, g)
     DD = FullPath(inp)
     integrand = z -> g(z) * P(inp, z)
     return integrand, DD
 end
-
 function Residue(g,f,z)
     F = z -> g.(z).*f.(z)
     s = curv( t -> z .+ exp.(1im*t), 0, 2*π, t -> 1im*exp.(1im*t),100)
     Clen_Curt(F,s)/(2*π*1im)
 end
-
-function My_Integrate(int_f,Defor,N)
-    res = 0im;
-    for i1 = 1:length(Defor.tt)
-        s = curv(Defor.path[i1],Defor.tt[i1][1],Defor.tt[i1][end],Defor.Dpath[i1],N)
-        if Defor.meth[i1] == "Legendre"
-            f = stand_int(int_f,s)
-            x, w = gausslegendre(N);
-            res += dot(w,f.(x))
-        elseif Defor.meth[i1] == "Clenshaw-Curtis"
-            res += Clen_Curt(int_f,s)
-        end
-    end
-    return res
-end
-
-function Integrand(inp, g)
-    DD = FullPath(inp)
-    integrand = z -> g(z) * P(inp, z)
-    return integrand, DD
-end
-
-function Residue(g,f,z)
-    F = z -> g.(z).*f.(z)
-    s = curv( t -> z .+ exp.(1im*t), 0, 2*π, t -> 1im*exp.(1im*t),100)
-    Clen_Curt(F,s)/(2*π*1im)
-end
-
-function SpecialFunction(w::Vector, x::Vector, t::Vector,start::Number, stop::Number, m::Number, N::Number,gg::Function)
+function SpecialFunction(w::Vector, x::Vector, t::Vector, start::Number, stop::Number, N::Number, gg::Function, Dgg::Vector, poles::Vector, m::Vector)
     n = length(w) + 1
     if real(start^n*w[end]) < 0
         @warn "Deformation cannot be made: exponential growth at start"
@@ -729,10 +749,14 @@ function SpecialFunction(w::Vector, x::Vector, t::Vector,start::Number, stop::Nu
     if real(stop^n*w[end]) < 0
         @warn "Deformation cannot be made: exponential growth at stop"
     end
+ 
     base_inp = Input_sf(w,x[1] * t[1]^(-1/n)+ eps(),t[1],start,stop);
     DDD, init_dir, start_init_ind, stop_init_ind = Danger_zone_maker(base_inp)
     Res = Complex.(zeros(length(x),length(t)))
+
     #Rotating
+    elapsed_time_path = 0;
+    elapsed_time_int = 0;
     for i1 = 1:length(x)
         xθ = angle(x[i1])
         w_i1 = [ w[j] * (exp(-1im*xθ))^(j + 1) for j in 1:length(w)];
@@ -743,30 +767,55 @@ function SpecialFunction(w::Vector, x::Vector, t::Vector,start::Number, stop::Nu
         for i2 = 1:length(t)
             g = z -> gg(z * exp(-1im*xθ) * t[i2]^(-1/n));
             inp = Input_sf(w_i1,x[i1] * t[i2]^(-1/n)+ eps(),t[i2],start_i1,stop_i1);
+            t1 = time();
             integrand, DD = Integrand(inp, g);
-    #DomainPlot(DD) |> display
+            elapsed_time_path += time() - t1
+            #DomainPlot(DD) |> display
+            #PathPlot(DD,integrand) |>display
+            t1 = time();
             vals = My_Integrate(integrand, DD,N)
-            if m != -1
-                vals -=  (init_dir * DD.dir < 0 && m < 0) ? 2 * π * 1im * Residue(z -> g(z), z-> P(inp, z), 0) : 0
-            else 
-                vals -=  (init_dir * DD.dir < 0) ? 2 * π * 1im ./ (1im* exp(-1im*xθ) * t[i2]^(-1/n)) : 0
+            for i3 = 1:length(m)
+                if m[i3] != -1
+                    vals -=  (init_dir * DD.dir < 0 && m[i3] < 0) ? 2 * π * 1im * Residue(z -> g(z), z-> P(inp, z), poles[i3]) : 0
+                else 
+                    vals -=  (init_dir * DD.dir < 0) ? 2 * π * 1im ./ (Dgg[i3](poles[i3] * exp(-1im*xθ) * t[i2]^(-1/n))*exp(-1im*xθ) * t[i2]^(-1/n)) : 0
+                end
             end
+            elapsed_time_int += time() - t1
             Res[i1,i2] = (t[i2])^(-1/n) * exp(-1im*xθ) * vals
         end
     end
+    #println("Elapsed pathing time: ", elapsed_time_path, " seconds");
+    #println("Elapsed integrating time: ", elapsed_time_int, " seconds");
+
     return Res
 end
-
-function SpecialFunction(w::Vector, x::Number, t::Number,start::Number, stop::Number, m::Number, N::Number,gg::Function)
-    R = SpecialFunction(w, [x], [t],start, stop, m, N,gg)
+function SpecialFunction(w::Vector, x::Number, t::Number, start::Number, stop::Number, N::Number, gg::Function, Dgg::Vector, poles::Vector, m::Vector)
+    R = SpecialFunction(w, [x], [t],start, stop, N, gg, Dgg, poles, m)
     R[1]
 end
-
+function SpecialFunction(w::Vector, x::Vector, t::Number, start::Number, stop::Number, N::Number, gg::Function, Dgg::Vector, poles::Vector, m::Vector)
+    R = SpecialFunction(w, x, [t],start, stop, N, gg, Dgg, poles, m)
+    R[:,1]
+end
 function SpecialFunction(w::Vector, xx::Vector, tt::Vector, m::Number, N::Number)
     g = z -> (1im*z).^m
-    SpecialFunction(w, xx, tt,-1,1, m, N,g)
+    Dg = z -> (1. * 1im).^(-m)
+    SpecialFunction(w, xx, tt,-1,1, N, g, [Dg], [0], [m])
 end
 function SpecialFunction(w::Vector, xx::Number, tt::Number, m::Number, N::Number)
     R = SpecialFunction(w, [xx], [tt], m, N)
     R[1]
 end
+function SpecialFunction(w::Vector, xx::Vector, tt::Number, m::Number, N::Number)
+    R = SpecialFunction(w, xx, [tt], m, N)
+    R[:,1]
+end 
+function SpecialFunction(w::Vector, xx::Number, tt::Number, N::Number, gg::Function, poles::Vector, m::Vector)
+    R = SpecialFunction(w, [xx], [tt], N, gg, poles, m)
+    R[1]
+end
+function SpecialFunction(w::Vector, xx::Vector, tt::Number, N::Number, gg::Function, poles::Vector, m::Vector)
+    R = SpecialFunction(w, xx, [tt], N, gg, poles, m)
+    R[:,1]
+end 
