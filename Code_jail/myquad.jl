@@ -1,5 +1,83 @@
 using LinearAlgebra
 include("..\\Code_jail\\Cheb.jl")
+function standardChop(coeffs, tol = eps())
+    # Set default if TOL is not provided
+    if isempty(tol)
+        tol = eps()
+    end
+    
+    # Check magnitude of TOL
+    if tol >= 1
+        return 1
+    end
+    
+    # Make sure COEFFS has length at least 17
+    n = length(coeffs)
+    if n < 17
+        return n
+    end
+    
+    # Step 1: Compute ENVELOPE
+    b = abs.(coeffs)
+    m = fill(b[end], n)
+    for j = n-1:-1:1
+        m[j] = max(b[j], m[j+1])
+    end
+    if abs.(m[1]) < 1e-18
+        return 1
+    end
+    envelope = m ./ m[1]
+    
+    # Step 2: Find PLATEAUPOINT
+    plateauPoint = 0
+    j2 = 0;
+    for j = 2:n
+        j2 = round(Int, 1.25*j + 5)
+        if j2 > n
+            # No plateau: exit
+            return n
+        end
+        e1 = envelope[j]
+        e2 = envelope[j2]
+        r = 3 * (1 - log(e1) / log(tol))
+        plateau = (abs(e1) < 1e-18) || (e2 / e1 > r)
+        if plateau
+            plateauPoint = j - 1
+            break
+        end
+    end
+    
+    # Step 3: Determine CUTOFF
+    if envelope[plateauPoint] == 0
+        return plateauPoint
+    else
+        j3 = sum(envelope .>= tol^(7/6))
+        j2 = min(j3 + 1, j2)
+        envelope[j2] = tol^(7/6)
+        cc = log10.(envelope[1:j2])
+        cc .= cc + range(0,stop=(-1/3)*log10(tol),length=j2)
+        d = argmin(cc)
+        return max(d - 1, 1)
+    end
+
+end
+
+function adaptive_quad(f,Nmax)
+    Ns = round.(Int,(1:6) ./ 6 .*Nmax)
+    f_ult = [];
+    N = 0;
+    for NN in Ns
+        f_ult = UltraFun(0,f,NN-1);
+        N = standardChop(f_ult.c)
+        if  N != NN
+            break
+        end
+    end
+    if mod(N,2) != 0
+        N += 1 
+    end
+    return f_ult.c[1:min(N,length(f_ult.c))], min(N,length(f_ult.c))
+end
 
 function Gauss_grid_weights(a,b)
     
@@ -36,7 +114,7 @@ function stand_int(f,s)
     return g
 end
 
-function Clen_Curt(f,s)
+function Clen_Curt_no_adapt(f,s)
     
     # function f
     
@@ -71,7 +149,7 @@ function Clen_Curt(f,s)
     return res
 end
 
-function Clen_Curt_slow(f_int,s)
+function Clen_Curt(f,s)
     
     # function f
     
@@ -80,21 +158,14 @@ function Clen_Curt_slow(f_int,s)
     #               end value - b
     #               curve derivative - w
     #               number of quadrature points - N
-    
-    N = s.N
 
-    if mod(N,2) != 0
-       N -= 1 
+    f_int = stand_int(f,s);
+
+    (f_coeffs, N) = adaptive_quad(f_int,s.N)
+    if s.N == N
+        #findlast(abs.(f_coeffs) .> 1e-14) |>display
+        @warn "Maximal amount of quadrature points insufficient: accuracy may be effected."
     end
-    
-    f = stand_int(f_int,s)
-
-    fc = UltraFun(0,f,100)
-
-    if sum(abs.(fc.c[(end-1:end)])) > 1e-14
-        @warn "The integrand is incorrect or not approximated well enough"
-    end
-
     n = 0:N/2;
     D = 2 * cos.(2* transpose(n) .* n * pi/N)/N;
     D[1,:] = D[1,:] .* 0.5;
@@ -102,11 +173,10 @@ function Clen_Curt_slow(f_int,s)
     w = D * d;
     x = cos.( (0:N) * π / N );
     w = [w;w[length(w)-1:-1:1]];
-    res = dot(w,f.(x))
+    res = dot(w,f_int.(x))
     
     return res
 end
-
 
 function m_Filon_Clen_Curt(f_o,s)
     
@@ -139,8 +209,8 @@ function m_Filon_Clen_Curt(f_o,s)
     for i1 = 1:(M-1)
         sa = curv(x->x,mua[i1],mua[i1+1],x->1,N,M,q)
         sb = curv(x->x,mub[i1],mub[i1+1],x->1,N,M,q)
-        resa = resa + Clen_Curt(f,sa);
-        resb = resb + Clen_Curt(f,sb);
+        resa = resa + Clen_Curt_no_adapt(f,sa);
+        resb = resb + Clen_Curt_no_adapt(f,sb);
     end
 
     if s.a == 0
