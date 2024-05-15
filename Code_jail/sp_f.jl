@@ -223,7 +223,6 @@ function PathPlot(D::Deformation, integrand::Function)
                 end 
             end
         end
-        #scatter!(ttend,real.(integrand.(pathf[i1].(ttend))), color =:black, markersize =5, label = "");
     end
     plot!()|>display
 end 
@@ -738,7 +737,7 @@ function Integrand(inp, g)
 end
 function Residue(g,f,z)
     F = z -> g.(z).*f.(z)
-    s = curv( t -> z .+ exp.(1im*t), 0, 2*π, t -> 1im*exp.(1im*t),100)
+    s = curv( t -> z .+ exp.(1im*t), 0, 2*π, t -> 1im*exp.(1im*t),500)
     Clen_Curt(F,s)/(2*π*1im)
 end
 function SpecialFunction(w::Vector, x::Vector, t::Vector, start::Number, stop::Number, N::Number, gg::Function, Dgg::Vector, poles::Vector, m::Vector)
@@ -762,18 +761,20 @@ function SpecialFunction(w::Vector, x::Vector, t::Vector, start::Number, stop::N
         w_i1 = [ w[j] * (exp(-1im*xθ))^(j + 1) for j in 1:length(w)];
         start_i1 = start * exp(1im*xθ);
         stop_i1 = stop * exp(1im*xθ);
-
     #Get integrand
         for i2 = 1:length(t)
             g = z -> gg(z * exp(-1im*xθ) * t[i2]^(-1/n));
             inp = Input_sf(w_i1,x[i1] * t[i2]^(-1/n)+ eps(),t[i2],start_i1,stop_i1);
             t1 = time();
+
             integrand, DD = Integrand(inp, g);
             elapsed_time_path += time() - t1
             #DomainPlot(DD) |> display
-            #PathPlot(DD,integrand) |>display
+            #PathPlot(DD,integrand)
             t1 = time();
+
             vals = My_Integrate(integrand, DD,N)
+
             for i3 = 1:length(m)
                 if m[i3] != -1
                     vals -=  (init_dir * DD.dir < 0 && m[i3] < 0) ? 2 * π * 1im * Residue(z -> g(z), z-> P(inp, z), poles[i3]) : 0
@@ -787,7 +788,6 @@ function SpecialFunction(w::Vector, x::Vector, t::Vector, start::Number, stop::N
     end
     #println("Elapsed pathing time: ", elapsed_time_path, " seconds");
     #println("Elapsed integrating time: ", elapsed_time_int, " seconds");
-
     return Res
 end
 function SpecialFunction(w::Vector, x::Number, t::Number, start::Number, stop::Number, N::Number, gg::Function, Dgg::Vector, poles::Vector, m::Vector)
