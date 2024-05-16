@@ -150,32 +150,19 @@ function Clen_Curt_no_adapt(f,s)
 end
 
 function Clen_Curt(f,s)
-    
-    # function f
-    
-    #object s with: curve - c
-    #               start value - a
-    #               end value - b
-    #               curve derivative - w
-    #               number of quadrature points - N
 
     f_int = stand_int(f,s);
 
     (f_coeffs, N) = adaptive_quad(f_int,s.N)
     if s.N == N
-        #findlast(abs.(f_coeffs) .> 1e-14) |>display
         @warn "Maximal amount of quadrature points insufficient: accuracy may be effected."
     end
-    n = 0:N/2;
-    D = 2 * cos.(2* transpose(n) .* n * pi/N)/N;
-    D[1,:] = D[1,:] .* 0.5;
-    d = [1; 2 ./ (1 .- (2:2:N).^2)];
-    w = D * d;
-    x = cos.( (0:N) * π / N );
-    w = [w;w[length(w)-1:-1:1]];
-    res = dot(w,f_int.(x))
+
+    w = [ k % 2 == 0 ? 2. /(1. - k^2) * sqrt(2.) : 0. for k in 0:(N-1)]
+    w[1] = 2;
+    w[end-1:end] ./= 2
     
-    return res
+    return dot(w, f_coeffs)
 end
 
 function m_Filon_Clen_Curt(f_o,s)
