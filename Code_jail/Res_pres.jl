@@ -1,5 +1,3 @@
-using  Plots, LinearAlgebra
-
 function stand_int(f,s)
     
     f_curv = x-> map(f,map(s.c,x))  .* map(s.w,x); # map to real line

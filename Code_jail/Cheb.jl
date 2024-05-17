@@ -1,6 +1,3 @@
-using Plots, SparseArrays, LinearAlgebra, Printf, SpecialFunctions
-import Plots: plot, +, -
-
 function Jacobi_ab(a,b) #TODO: simplify evaluation
     bfun = n -> (a+b==-1 && n==0) ? √(2*a*b) :
         2*sqrt(n+1)*sqrt(n+a+1)*sqrt(n+b+1)*sqrt(n+a+b+1)/
