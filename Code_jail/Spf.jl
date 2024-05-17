@@ -1,6 +1,4 @@
-using LinearAlgebra, FastGaussQuadrature, Plots
-include("..\\Code_jail\\Misc.jl")
-include("..\\Code_jail\\myquad.jl")
+include.(("Misc.jl", "Myquad.jl"))
 
 mutable struct Input_sf
     # Dispersion relation coefficients
@@ -35,7 +33,7 @@ function polar(z)
 end
 function Input_sf(ww::Vector,xx::Number,tt::Number,start::Number,stop::Number)
     xxr, xxθ = polar(xx);
-    wwr, wwθ = polar(w[end]);
+    wwr, wwθ = polar(ww[end]);
     Input_sf(ww,xxr,tt,xxθ,wwr,wwθ,start,stop)
 end
 
@@ -101,7 +99,6 @@ function Deformation(path::Vector,cate::Vector,w::Vector,xθ::Number,dir::Number
     func, Dfunc, tt, meth = fpath_maker(path,cate)
     Deformation(path,cate,func, Dfunc, tt, meth,w,xθ,dir)
 end 
-
 function DomainPlot(D::Deformation)
     pl = plot();
     path = D.pp;
@@ -664,7 +661,6 @@ function Danger_zone_small(inp::Input_sf)
     end
     return Defor_zones, dir, start_ind, stop_ind
 end
-
 function FullPath(inp)
     w = inp.w; x = inp.x; t = inp.t; xθ = inp.xθ; wθ = inp.wθ
     if abs(x) < 0.1-eps() || isempty(kk0(inp))
@@ -715,7 +711,6 @@ function FullPath(inp)
 
     return Deformation(connect,category,w,xθ,dir)
 end 
-
 function My_Integrate(int_f,Defor,N)
     res = 0im;
     for i1 = 1:length(Defor.tt)
