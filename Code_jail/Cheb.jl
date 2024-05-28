@@ -24,7 +24,7 @@ end
 
 function Interp_transform(f::Function,a,b,n)
     E = Jacobi(a,b,n) |> eigen
-    E.vectors*(Diagonal(E.vectors[1,:])*map(f,E.values))
+    E.vectors*(Diagonal(E.vectors[1,:])*f(E.values))
 end
 
 struct UltraFun

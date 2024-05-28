@@ -47,7 +47,7 @@ function stand_int(f,s)
     f_curv = x-> map(f,map(s.c,x))  .* map(s.w,x); # map to real line
     
     Dtrans_func = (s.b-s.a)/2;
-    trans_func = x -> (s.b + s.a)/2 + x * (s.b - s.a)/2 ;
+    trans_func = x -> (s.b + s.a)/2 .+ x .* (s.b - s.a) ./ 2 ;
     
     g = x -> f_curv(trans_func(x)) .* Dtrans_func; # map to [-1,1]
     return g
