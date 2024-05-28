@@ -1,5 +1,4 @@
 include("myquad.jl")
-include("myCheb.jl")
 include("Cheb.jl")
 
 function naive_ft(f,s,k)

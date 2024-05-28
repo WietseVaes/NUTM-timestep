@@ -30,7 +30,7 @@ function int_err_plot(meth,f,true_res,s, NN = 1000-1)
 
     for i1 = 1:NN
         s.N = i1+1
-        res[i1] = meth(f,s) - true_res
+        res[i1] = abs(meth(f,s) - true_res)
         if isnan(res[i1])
             counter = i1-1
             break
@@ -40,7 +40,7 @@ function int_err_plot(meth,f,true_res,s, NN = 1000-1)
     plot_res = res[1:counter];
 
     p = plot(layout = grid(1, 2),size=(1000,400));
-    plot!(s.a : .1 : s.b, map(f,s.c.(s.a : .1 : s.b)), subplot = 1, label = "", title ="Function")
+    plot!(s.a : .1 : s.b, real.(map(f,s.c.(s.a : .1 : s.b))), subplot = 1, label = "", title ="Function")
     plot!((1:length(plot_res )) .+ 1,abs.(plot_res ) .+ 10^(-17),yaxis =:log,subplot = 2, label = "", title ="Integral error", show = true)
     p
 end
