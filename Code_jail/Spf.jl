@@ -18,7 +18,7 @@ end
 function angle2pi(z)
     ang = angle.(z);
     if ang isa Array{<:Number,1}
-        for i1 = 1:length(ang)
+        for i1 in eachindex(ang)
             if ang[i1] < -1e-15
                 ang[i1] += 2*π
             end
@@ -50,7 +50,7 @@ struct Deformation
 end
 function dom_sectioner(path)
     a = -1; b = 1;
-    distances = [abs(path[i][2]-path[i][1]) for i in 1:length(path)]; distances .*= (b-a)/sum(distances)
+    distances = [abs(path[i][2]-path[i][1]) for i in eachindex(path)]; distances .*= (b-a)/sum(distances)
     t_vals = zeros(length(path)+1); t_vals[1] = a; t_vals[end] = b;
     for i1 = 1:length(path)-1
         t_vals[i1+1] = t_vals[i1]+distances[i1]
@@ -87,7 +87,7 @@ function fpath_maker(path,cate)
     tt = [];
     funcs = [];
     Dfuncs = [];
-    for i1 = 1:length(path)
+    for i1 in eachindex(path)
         push!(meth, "Clenshaw-Curtis")
         push!(funcs, t -> pwlinf_maker(t,t_vals[i1:(i1+1)],path[i1],meth[i1]))
         push!(Dfuncs, t -> Dpwlinf_maker(t,t_vals[i1:(i1+1)],path[i1],meth[i1]))
@@ -224,8 +224,8 @@ function PathPlot(D::Deformation, integrand::Function)
     plot!()|>display
 end 
 
-ω(w) = (z) -> sum([w[i] .* z.^(i + 1) for i in 1:length(w)])
-DDω(w) = (z) -> sum([(i + 1) * i .* w[i] .* z.^(i-1) for i in 1:length(w)])
+ω(w) = (z) -> sum([w[i] .* z.^(i + 1) for i in eachindex(w)])
+DDω(w) = (z) -> sum([(i + 1) * i .* w[i] .* z.^(i-1) for i in eachindex(w)])
 Φ(inp, k) = begin
     ww = inp.w; xx = inp.x; tt = inp.t;
     ω_kt = ω(ww)(k .* tt.^(-1 / (length(ww) + 1)))
@@ -243,7 +243,7 @@ P(inp, k) = begin
 end
 function MinN(X, Y,N)
     out = []
-    for i1 in 1:length(X)
+    for i1 in eachindex(X)
         x = X[i1]
         n = N[i1]
         p = []
@@ -350,7 +350,7 @@ end
 function next_to_indices(inp,z,BD)
     z_bd = containing_bds(inp,z)
     ind_bd = z_bd*0;
-    for i1=1:length(BD)
+    for i1 in eachindex(BD)
         bd = BD[i1]
         if z_bd[1] in bd
             ind_bd[1] = i1
@@ -368,10 +368,10 @@ function CP_assigner(K0,bd)
     CP_bd = complex.(zeros(length(bd)))
     CP_in = Vector{Bool}(undef, length(bd))
     CP_in[:] .= false
-    for i1 = 1:length(K0)
+    for i1 in eachindex(K0)
         CP = K0[i1]
         CPr, CPθ = polar(CP)
-        for i2 = 1:length(bd)
+        for i2 in eachindex(bd)
             if bd[i2][2]<=CPθ && CPθ <=bd[i2][3]
                 CP_bd[i2] = CP
                 CP_in[i2] = true
@@ -521,7 +521,7 @@ function get_CP_ent_ext(inp::Input_sf,bd::Vector,K0::Vector,i1::Number)
     end
 
     scaleR = 20*sqrt.(abs.(1 ./ (αs .* x)))
-    R = [minimum([scaleR[i1];maxR[i1]]) for i1 = 1:length(scaleR)];
+    R = [minimum([scaleR[i1];maxR[i1]]) for i1 in eachindex(scaleR)];
     
     CP_ent = K0 + R.*exp.(1im .* θ_ent_ext)
     CP_ext = K0 - R.*exp.(1im .* θ_ent_ext)
@@ -548,7 +548,7 @@ function get_CP_ent_ext(inp::Input_sf,bd::Vector,K0::Vector)
     CPext = cos.(θ-θmid).*R./cos.(Δθext).*exp.(1im*θext)
     CP_ent = [];
     CP_ext = [];
-    for i1 = 1:length(CPent)
+    for i1 in eachindex(CPent)
         push!(CP_ent, [CPent[i1] + Rinf*exp(1im*θent[i1]),CPent[i1] + K0[i1]] ./ 2)
         push!(CP_ext, [CPext[i1] + K0[i1],CPext[i1] + Rinf*exp(1im*θext[i1])] ./ 2)
     end
@@ -606,15 +606,15 @@ function Danger_zone_maker(inp::Input_sf)
         push!(bdinf, Rinf*exp.(1im*bd[1][[4,1]]) .+ CP_bd[1])
         push!(bdinf, Rinf*exp.(1im*bd[2][[4,1]]) .+ CP_bd[2])
     else
-        for i1 = 1:length(bd)
+        for i1 in eachindex(bd)
             push!(bdinf, Rinf*exp.(1im*bd[i1][[4,1]]))
         end
     end
-    CP_ent_ext = [[MinN([bdinf[i1][1]],[CP_ent[i1];CP_ext[i1]],1)[1];MinN([bdinf[i1][2]],[CP_ent[i1];CP_ext[i1]],1)[1]] for i1 in 1:length(bdinf)]
-    Defor_points = [[bdinf[i1][1];CP_ent_ext[i1][1];CP_bd[i1];CP_ent_ext[i1][2];bdinf[i1][2]] for i1 in 1:length(bdinf)]
+    CP_ent_ext = [[MinN([bdinf[i1][1]],[CP_ent[i1];CP_ext[i1]],1)[1];MinN([bdinf[i1][2]],[CP_ent[i1];CP_ext[i1]],1)[1]] for i1 in eachindex(bdinf)]
+    Defor_points = [[bdinf[i1][1];CP_ent_ext[i1][1];CP_bd[i1];CP_ent_ext[i1][2];bdinf[i1][2]] for i1 in eachindex(bdinf)]
     Defor_points = dir == 1 ? reverse.(Defor_points) : Defor_points;
     Defor_zones = []
-    for i1 = 1:length(Defor_points)
+    for i1 in eachindex(Defor_points)
         push!(Defor_zones, Defor_points[i1])
     end
     return Defor_zones, dir, start_ind, stop_ind
@@ -649,14 +649,14 @@ function Danger_zone_small(inp::Input_sf)
         push!(bdinf, reverse(Rinf*exp.(1im*bd[1][[1,4]]) .+ CP_bd[1]/abs(CP_bd[1])*.5))
         push!(bdinf, reverse(Rinf*exp.(1im*bd[2][[1,4]]) .+ CP_bd[2]/abs(CP_bd[2])*.5))
     else
-        for i1 = 1:length(bd)
+        for i1 in eachindex(bd)
             push!(bdinf, reverse(Rinf*exp.(1im*bd[i1][[1,4]])))
         end
     end
-    Defor_points = [[bdinf[i1][1];CP_ent[i1];CP_ext[i1];bdinf[i1][2]] for i1 in 1:length(bdinf)]
+    Defor_points = [[bdinf[i1][1];CP_ent[i1];CP_ext[i1];bdinf[i1][2]] for i1 in eachindex(bdinf)]
     Defor_points = dir == 1 ? reverse.(Defor_points) : Defor_points;
     Defor_zones = []
-    for i1 = 1:length(Defor_points)
+    for i1 in eachindex(Defor_points)
         push!(Defor_zones, Defor_points[i1])
     end
     return Defor_zones, dir, start_ind, stop_ind
@@ -747,7 +747,6 @@ function SpecialFunction(w::Vector, x::Vector, t::Vector, start::Number, stop::N
     base_inp = Input_sf(w,x[1] * t[1]^(-1/n)+ eps(),t[1],start,stop);
     DDD, init_dir, start_init_ind, stop_init_ind = Danger_zone_maker(base_inp)
     Res = Complex.(zeros(length(x),length(t)))
-
     #Rotating
     elapsed_time_path = 0;
     elapsed_time_int = 0;

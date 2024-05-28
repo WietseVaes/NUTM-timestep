@@ -8,9 +8,9 @@ function OrderRoots(x)
     return x[sorted_indices]
 end
 
-ω(w) = (z) -> sum([w[i] .* z.^(i + 1) for i in 1:length(w)])
-Dω(w) = (z) -> sum([(i + 1) .* w[i] .* z.^(i) for i in 1:length(w)])
-DDω(w) = (z) -> sum([(i + 1) * i .* w[i] .* z.^(i-1) for i in 1:length(w)])
+ω(w) = (z) -> sum([w[i] .* z.^(i + 1) for i in eachindex(w)])
+Dω(w) = (z) -> sum([(i + 1) .* w[i] .* z.^(i) for i in eachindex(w)])
+DDω(w) = (z) -> sum([(i + 1) * i .* w[i] .* z.^(i-1) for i in eachindex(w)])
 
 Φ(w, x, t, k) = begin
     ω_kt = ω(w)(k .* t.^(-1 / (length(w) + 1)))
@@ -101,7 +101,7 @@ function Rads(w, xx, tt)
     args = Dirs(w, xx, tt) 
     maxrads = []
     if length(w) > 1
-        for i in 1:length(close)
+        for i in eachindex(close)
             θ = angle.(close[i][1])
             ϕ = θ - args[i]
             γ = K0[i] * exp(-1im * args[i])
@@ -124,7 +124,7 @@ end
 
 function SDPaths(w, xx, tt)
     K0, args, close, rads = Rads(w, xx, tt)
-    paths = [K0[i] .+ [rads[i] * exp(1im * (args[i] + π)) 0; 0 rads[i] * exp(1im * args[i])] for i in 1:length(K0)]
+    paths = [K0[i] .+ [rads[i] * exp(1im * (args[i] + π)) 0; 0 rads[i] * exp(1im * args[i])] for i in eachindex(K0)]
     return K0, close, paths
 end
 
@@ -140,7 +140,7 @@ function SmallXPath(w, x, t)
     end
     s = [];
     c = [];
-    for i in 1:length(p1) - 1
+    for i in eachindex(p1) - 1
         push!(s, [p2[i], p1[i]], [p1[i], p1[i+1]], [p1[i+1], p2[i+1]])
         push!(c, ["inf", "CP_ent"], ["CP_ent", "CP_ext"], ["CP_ext", "inf"])
     end
@@ -174,9 +174,9 @@ end
 
 function dom_sectioner(path)
     a = -1; b = 1;
-    distances = [abs(path[i][2]-path[i][1]) for i in 1:length(path)]; distances .*= (b-a)/sum(distances)
+    distances = [abs(path[i][2]-path[i][1]) for i in eachindex(path)]; distances .*= (b-a)/sum(distances)
     t_vals = zeros(length(path)+1); t_vals[1] = a; t_vals[end] = b;
-    for i1 = 1:length(path)-1
+    for i1 in eachindex(path)-1
         t_vals[i1+1] = t_vals[i1]+distances[i1]
     end
     return t_vals
@@ -214,7 +214,7 @@ function fpath_maker(path,cate)
     tt = [];
     funcs = [];
     Dfuncs = [];
-    for i1 = 1:length(path)
+    for i1 in eachindex(path)
         push!(meth, "Legendre")
         xgrid = path[i1];
 
@@ -250,7 +250,7 @@ function FullPath(w, xx, tt)
 
     connect = []
     category = []
-    for i in 1:length(paths)
+    for i in eachindex(paths)
         ends = [paths[i][1, 1], paths[i][2, 2]]
         closer = [0., 0.] .* 1im
         if abs(ends[1] - close[i][1]) < abs(ends[2] - close[i][1])
@@ -279,7 +279,7 @@ function DomainPlot(D::Deformation)
     inf_label = "inf";
     CP_ext_label = "CP_ext";
     CP_ent_label = "CP_ent";
-    for i1 in 1:length(path)
+    for i1 in eachindex(path)
         plot!([real(path[i1][1]),real(path[i1][2])],[imag(path[i1][1]),imag(path[i1][2])], arrow=true, color =:black, linewidth =2, label ="");
         for i2 in 1:2
             if cate[i1][i2] == "CP"
@@ -304,7 +304,7 @@ function NumericalDomainPlot(D::Deformation)
     Legendre_label = "Legendre";
     Clen_Curt_label = "Clenshaw-Curtis";
     plot()
-    for i1 = 1:length(D.path)
+    for i1 in eachindex(D.path)
         t = range(D.tt[i1][1],D.tt[i1][end],100)
         if D.meth[i1] == "Clenshaw-Curtis"
             plot!(real.(D.path[i1].(t)),imag.(D.path[i1].(t)), color =:purple3, linewidth =2, label = Clen_Curt_label)
@@ -325,7 +325,7 @@ function NumericalDomainPlot(D::Deformation)
     inf_label = "inf";
     CP_ext_label = "CP_ext";
     CP_ent_label = "CP_ent";
-    for i1 = 1:length(DD.pp)
+    for i1 in eachindex(DD.pp)
         for i2 in 1:2
             if DD.cc[i1][i2] == "CP"
                 scatter!([real(D.pp[i1][i2])],[imag(D.pp[i1][i2])], color =:green, markersize =5, label = CP_label);
@@ -349,7 +349,7 @@ end
 
 function My_Integrate(int_f,Defor,N)
     res = 0im;
-    for i1 = 1:length(Defor.tt)
+    for i1 in eachindex(Defor.tt)
 
         s = curv(Defor.path[i1],Defor.tt[i1][1],Defor.tt[i1][end],Defor.Dpath[i1],N)
 
@@ -386,7 +386,7 @@ end
 function SpecialFunction(w::Vector, xx::Number, tt::Number, m::Number, N::Number,g::Function)
     tt *= -1im
     n = length(w) + 1
-    w = real(xx) >= 0. ? w : [w[i] * (-1)^(i + 1) for i in 1:length(w)];
+    w = real(xx) >= 0. ? w : [w[i] * (-1)^(i + 1) for i in eachindex(w)];
     integrand, DD = Integrand(w, sign(real(xx)) * xx * tt^(-1/n), tt, g);
 
     extra_c = real(xx) < 0. ? (-1)^m : 1;

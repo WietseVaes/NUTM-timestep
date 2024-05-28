@@ -1,6 +1,6 @@
 using SparseArrays, LinearAlgebra
 
-include("myquad.jl")
+include("../Code_jail/myquad.jl")
 
 #   Chebyshev discrete Polynomials at x and Coefficients
 #   ≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡
@@ -171,7 +171,7 @@ function Fokas_Cheb_ft(f, N, λ)
     
     for m = 0:(N-1)
         res_tmp = λ .* 0
-        for i1 = 1:length(λ)
+        for i1 in eachindex(λ)
             if λ[i1]!=0
                 n = 1:(m+1)
                 res_tmp[i1] = sum(α_cheb(m) .* (exp.(1im .* λ[i1])./((1im .* λ[i1]).^n) .+ (-1).^(n .+ m).*exp.(-1im .* λ[i1])./((1im .* λ[i1]).^n)))
@@ -300,7 +300,7 @@ function F_der_sinc(x,N)
         
         atzero = mod(i1,2) ==0 ? (-1)^(i1/2)/(i1+1) : 0
         
-        Dsinc[:,i1+1] = [x[i2] == 0 ? atzero : (Dsin[i2] - i1*Dsinc[i2,i1]) ./ x[i2] for i2 in 1:length(x)]
+        Dsinc[:,i1+1] = [x[i2] == 0 ? atzero : (Dsin[i2] - i1*Dsinc[i2,i1]) ./ x[i2] for i2 in eachindex(x)]
     end
     return Dsinc
 end
