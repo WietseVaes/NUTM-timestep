@@ -1,3 +1,4 @@
+using Plots, Printf
 include.(("Misc.jl", "Myquad.jl"))
 
 mutable struct Input_sf
@@ -99,7 +100,33 @@ function Deformation(path::Vector,cate::Vector,w::Vector,xθ::Number,dir::Number
     func, Dfunc, tt, meth = fpath_maker(path,cate)
     Deformation(path,cate,func, Dfunc, tt, meth,w,xθ,dir)
 end 
-function DomainPlot(D::Deformation)
+function tick_maker(y)
+    exponent = Int.(floor.(log10.(abs.(y))))
+    if maximum(abs.(exponent)) < 3
+        scaled_value = range(y[1],stop=y[2],length = 5)
+    else
+        RR = collect(range(y[1],stop=y[2],length = 5))
+        RR2 = RR .*( 10. .^ (-maximum(exponent)))
+        scaled_value = round.(RR2, digits = 2)
+    end
+    formatted_value = []
+    for i1 in eachindex(scaled_value)
+        push!(formatted_value, @sprintf("%.2f", scaled_value[i1]))
+    end
+    return_formatted_value = []
+    for i1 in eachindex(scaled_value)
+        push!(return_formatted_value,"$(formatted_value[i1]) × 10^$(maximum(exponent))")
+    end
+    
+    # Construct the final label
+    if maximum(abs.(exponent)) < 3
+        return scaled_value, formatted_value
+    else
+        return RR, return_formatted_value
+    end
+end
+
+function DomainPlot(D::Deformation,x::Number,t::Number)
     pl = plot();
     path = D.pp;
     cate = D.cc
@@ -107,8 +134,15 @@ function DomainPlot(D::Deformation)
     inf_label = "inf";
     CP_ext_label = "CP_ext";
     CP_ent_label = "CP_ent";
+    CP_label = "";
+    inf_label = "";
+    CP_ext_label = "";
+    CP_ent_label = "";
+    Def_label = "Deformation";
+    titlestr = @sprintf("Deformation for x = %.2f and t = %.2f", x, t)
     for i1 in 1:length(path)
-        plot!([real(path[i1][1]),real(path[i1][2])],[imag(path[i1][1]),imag(path[i1][2])], arrow=true, color =:black, linewidth =2, label ="");
+        plot!([real(path[i1][1]),real(path[i1][2])],[imag(path[i1][1]),imag(path[i1][2])], arrow=true, color =:black, linewidth =2, label = Def_label, title = titlestr);
+        Def_label = "";
         for i2 in 1:2
             if cate[i1][i2] == "CP"
                 scatter!([real(path[i1][i2])],[imag(path[i1][i2])], color =:green, markersize =5, label = CP_label);
@@ -120,7 +154,7 @@ function DomainPlot(D::Deformation)
                 scatter!([real(path[i1][i2])],[imag(path[i1][i2])], color =:orange, markersize =5, label = CP_ext_label)
                 CP_ext_label = "";
             elseif cate[i1][i2] == "CP_ent"
-                scatter!([real(path[i1][i2])],[imag(path[i1][i2])], color =:blue, markersize =5, label = CP_ent_label)
+                scatter!([real(path[i1][i2])],[imag(path[i1][i2])], color =:orange, markersize =5, label = CP_ent_label)
                 CP_ent_label = "";
             end 
         end
@@ -146,84 +180,47 @@ function DomainPlot(D::Deformation)
     heatmap!(xplt, yplt, mmask, c=:RdBu,  alpha =0.5, cbar=false,aspect_ratio=:equal, xlims = (minimum([xr[1],yr[1]]), maximum([xr[2],yr[2]])), ylims = (minimum([xr[1],yr[1]]), maximum([xr[2],yr[2]])))
 
     xθ = D.xθ;
-    r = LinRange(minimum([xr[1],yr[1]]),maximum([xr[2],yr[2]]), 500)
-    plot!(r*cos(xθ),r*sin(xθ),c=:blue, linewidth=3, label = "Original int", xlims = (minimum([xr[1],yr[1]]), maximum([xr[2],yr[2]])), ylims = (minimum([xr[1],yr[1]]), maximum([xr[2],yr[2]])))
-    pl = plot!()
+    r = LinRange(minimum([xr[1],yr[1]]),maximum([xr[2],yr[2]]), 500);
+    plot!(r*cos(xθ),r*sin(xθ),c=:blue, linewidth=3, label = "Original int", xlims = (minimum([xr[1],yr[1]]), maximum([xr[2],yr[2]])), ylims = (minimum([xr[1],yr[1]]), maximum([xr[2],yr[2]])), legend =:outerbottom);
+    pl = plot!();
 end
-function NumericalDomainPlot(D::Deformation)
-    Legendre_label = "Legendre";
-    Clen_Curt_label = "Clenshaw-Curtis";
-    plot()
-    for i1 = 1:length(D.path)
-        t = range(D.tt[i1][1],D.tt[i1][end],100)
-        if D.meth[i1] == "Clenshaw-Curtis"
-            plot!(real.(D.path[i1].(t)),imag.(D.path[i1].(t)), color =:purple3, linewidth =2, label = Clen_Curt_label, aspect_ratio=:equal)
-
-
-            Clen_Curt_label = "";
-        elseif D.meth[i1] == "Legendre"
-            plot!(real.(D.path[i1].(t)),imag.(D.path[i1].(t)), color =:magenta4, linewidth =2, label = Legendre_label, aspect_ratio=:equal)
-
-            x, w = gausslegendre(15);
-            
-            trans_func = x -> (D.tt[i1][end] + D.tt[i1][1])/2 + x * (D.tt[i1][end] - D.tt[i1][1])/2 ;
-            scatter!(real.(D.path[i1].(trans_func.(x))),imag.(D.path[i1].(trans_func.(x))), color =:magenta4, linewidth =2, label = "")
-            Legendre_label = "";
-        end
-    end
-    CP_label = "CP";
-    inf_label = "inf";
-    CP_ext_label = "CP_ext";
-    CP_ent_label = "CP_ent";
-    for i1 = 1:length(D.cc)
-        for i2 in 1:2
-            if D.cc[i1][i2] == "CP"
-                scatter!([real(D.pp[i1][i2])],[imag(D.pp[i1][i2])], color =:green, markersize =5, label = CP_label);
-                CP_label = "";
-            elseif D.cc[i1][i2] == "inf"
-                scatter!([real(D.pp[i1][i2])],[imag(D.pp[i1][i2])], color =:red, markersize =5, label = inf_label)
-                inf_label = "";
-            elseif D.cc[i1][i2] == "CP_ext"
-                scatter!([real(D.pp[i1][i2])],[imag(D.pp[i1][i2])], color =:orange, markersize =5, label = CP_ext_label)
-                CP_ext_label = "";
-            elseif D.cc[i1][i2] == "CP_ent"
-                scatter!([real(D.pp[i1][i2])],[imag(D.pp[i1][i2])], color =:blue, markersize =5, label = CP_ent_label)
-                CP_ent_label = "";
-            end 
-        end
-    end
-    
-    plot!()|>display
+function DomainPlot(D::Deformation)
+    DomainPlot(D,0,0)
 end
 function PathPlot(D::Deformation, integrand::Function)
     tpoint = D.tt 
     pathf = D.path 
     cate = D.cc
-    plot(layout = grid(1, 2),size=(1000,400))
     funcs = [z->real.(z); z->imag.(z)]
-    titles = ["real"; "complex"]
+    titles = ["Real integrand"; "Complex integrand"]
+    plts = [];
     for i3 = 1:2
+        plt = plot()
         gg = funcs[i3]
         for i1 in 1:length(pathf)
             ttend = tpoint[i1]
             tt = ttend[1]:0.001:ttend[2];
-            plot!(tt,gg.(integrand.(pathf[i1].(tt))), color =:black, linewidth =2, label ="", subplot = i3,title = titles[i3])
+            plot!(tt,gg.(integrand.(pathf[i1].(tt))), color =:black, linewidth =2, label ="",title = titles[i3]);
             for i2 = 1:2
                 if cate[i1][i2] == "CP"
-                    scatter!([ttend[i2]],[gg(integrand(pathf[i1](ttend[i2])))], color =:green, markersize =5, label = "", subplot = i3);
+                    scatter!([ttend[i2]],[gg(integrand(pathf[i1](ttend[i2])))], color =:green, markersize =5, label = "");
                 elseif cate[i1][i2] == "inf"
-                    scatter!([ttend[i2]],[gg(integrand(pathf[i1](ttend[i2])))], color =:red, markersize =5, label = "", subplot = i3)
+                    scatter!([ttend[i2]],[gg(integrand(pathf[i1](ttend[i2])))], color =:red, markersize =5, label = "");
                 elseif cate[i1][i2] == "CP_ext"
-                    scatter!([ttend[i2]],[gg(integrand(pathf[i1](ttend[i2])))], color =:orange, markersize =5, label = "", subplot = i3)
+                    scatter!([ttend[i2]],[gg(integrand(pathf[i1](ttend[i2])))], color =:orange, markersize =5, label = "");
                 elseif cate[i1][i2] == "CP_ent"
-                    scatter!([ttend[i2]],[gg(integrand(pathf[i1](ttend[i2])))], color =:blue, markersize =5, label = "", subplot = i3)
+                    scatter!([ttend[i2]],[gg(integrand(pathf[i1](ttend[i2])))], color =:orange, markersize =5, label = "");
                 end 
             end
         end
+        yr = ylims(plt);
+        yticks_positions, yticks_lables = tick_maker(yr);
+        plt = plot!(yticks=(yticks_positions, yticks_lables))
+        push!(plts, plt)
     end
-    plot!()|>display
-end 
+    pl = plot(plts[1], plts[2], layout = grid(2, 1),size=(800,500));
 
+end 
 ω(w) = (z) -> sum([w[i] .* z.^(i + 1) for i in eachindex(w)])
 DDω(w) = (z) -> sum([(i + 1) * i .* w[i] .* z.^(i-1) for i in eachindex(w)])
 Φ(inp, k) = begin
@@ -519,8 +516,8 @@ function get_CP_ent_ext(inp::Input_sf,bd::Vector,K0::Vector,i1::Number)
     else
         maxR = [Inf,Inf]
     end
-
     scaleR = 20*sqrt.(abs.(1 ./ (αs .* x)))
+
     R = [minimum([scaleR[i1];maxR[i1]]) for i1 in eachindex(scaleR)];
     
     CP_ent = K0 + R.*exp.(1im .* θ_ent_ext)
@@ -610,7 +607,7 @@ function Danger_zone_maker(inp::Input_sf)
             push!(bdinf, Rinf*exp.(1im*bd[i1][[4,1]]))
         end
     end
-    CP_ent_ext = [[MinN([bdinf[i1][1]],[CP_ent[i1];CP_ext[i1]],1)[1];MinN([bdinf[i1][2]],[CP_ent[i1];CP_ext[i1]],1)[1]] for i1 in eachindex(bdinf)]
+    CP_ent_ext = [[MinN([bdinf[i1][1]],[CP_ent[i1];CP_ext[i1]],1)[1];MinN([bdinf[i1][1]],[CP_ent[i1];CP_ext[i1]],2)[1][2]] for i1 in eachindex(bdinf)]
     Defor_points = [[bdinf[i1][1];CP_ent_ext[i1][1];CP_bd[i1];CP_ent_ext[i1][2];bdinf[i1][2]] for i1 in eachindex(bdinf)]
     Defor_points = dir == 1 ? reverse.(Defor_points) : Defor_points;
     Defor_zones = []
@@ -735,6 +732,7 @@ function Residue(g,f,z)
     s = curv( t -> z .+ exp.(1im*t), 0, 2*π, t -> 1im*exp.(1im*t),500)
     Clen_Curt(F,s)/(2*π*1im)
 end
+
 function SpecialFunction(w::Vector, x::Vector, t::Vector, start::Number, stop::Number, N::Number, gg::Function, Dgg::Vector, poles::Vector, m::Vector)
     n = length(w) + 1
     if real(start^n*w[end]) < 0
@@ -813,3 +811,29 @@ function SpecialFunction(w::Vector, xx::Vector, tt::Number, N::Number, gg::Funct
     R = SpecialFunction(w, xx, [tt], N, gg, poles, m)
     R[:,1]
 end 
+
+function Path_gif(w::Vector, x::Vector, t::Vector, start::Number, stop::Number, gg::Function, filename::String)
+    anim = Animation()
+    n = length(w)+1
+    for i1 = 1:length(x)
+        xθ = angle(x[i1])
+        w_i1 = [ w[j] * (exp(-1im*xθ))^(j + 1) for j in 1:length(w)];
+        start_i1 = start * exp(1im*xθ);
+        stop_i1 = stop * exp(1im*xθ);
+        for i2 = 1:length(t)
+            g = z -> gg(z * exp(-1im*xθ) * t[i2]^(-1/n));
+            inp = Input_sf(w_i1,x[i1] * t[i2]^(-1/n)+ eps(),t[i2],start_i1,stop_i1);
+            integrand, DD = Integrand(inp, g);
+            p1 = DomainPlot(DD,x[i1],t[i2]);
+            p2 = PathPlot(DD,integrand);
+            l = @layout [grid(1,2)]
+            plot(p1,p2; layout = l);
+            frame(anim)
+        end
+    end
+    gif(anim, filename)
+end
+
+function Path_gif(w::Vector, x::Vector, t::Number, start::Number, stop::Number, gg::Function, filename::String)
+    Path_gif(w, x, [t], start, stop, gg,filename)
+end
