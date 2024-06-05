@@ -128,8 +128,8 @@ function Heat_eq(w::Vector,x::Vector,t::Vector,f_init::Function,fL::Function,fR:
 
     Res = First_Int(w,x,t,f,1,L) - Second_Int(w,x,t,f,1,L) - Third_Int(w,x,t,f,1,L)
 
-    wtilde = [w[i1] * (-1)^(i1) for i1 = 0:(length(w)-1)]
-    Res += bd_cond(w,x,t,fL,3,L) + bd_cond(wtilde,x,t,fR,3,L)
+    wtilde = [w[i1+1] * (-1)^(i1) for i1 = 0:(length(w)-1)]
+    Res += bd_cond(w,x,t,fL,4,L) + bd_cond(wtilde,L .- x,t,fR,4,L)
 
 end
 
