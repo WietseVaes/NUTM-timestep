@@ -1,4 +1,4 @@
-using FastGaussQuadrature
+using FastGaussQuadrature, OperatorApproximation, SpecialFunctions
 include.(("Cheb.jl","Misc.jl"))
 
 function adaptive_quad(f,Nmax)
@@ -104,7 +104,7 @@ function Clen_Curt(f,s)
     return sum(w .* f_coeffs)
 end
 
-function m_Filon_Clen_Curt(f_o,s)
+function m_Filon_Clen_Curt(f_0,s)
     
     # function f
     
@@ -124,7 +124,7 @@ function m_Filon_Clen_Curt(f_o,s)
        N -= 1 
     end
     
-    f = x-> map(f_o,map(s.c,x))  .* map(s.w,x); # map to real line
+    f = x-> map(f_0,map(s.c,x))  .* map(s.w,x); # map to real line
 
     mua = s.a * ((1:M) ./ M).^q;
     mub = s.b * ((1:M) ./ M).^q;
@@ -170,7 +170,7 @@ function Trap(f_0,s)
     return res
 end
 
-function Laguerre_quad(f_o,s)
+function Laguerre_quad(f_0,s)
     
     #
     # For integrals of the the ∫_0^∞ exp(-x)*g(x)dx, here f(x) = exp(x)*g(x)
@@ -181,7 +181,7 @@ function Laguerre_quad(f_o,s)
     
     N = s.N 
     
-    f = x -> map(f_o,map(s.c,x)) .* exp(x)  .* map(s.w,x); # map to real line
+    f = x -> map(f_0,map(s.c,x)) .* exp(x)  .* map(s.w,x); # map to real line
     
     x, w = gausslaguerre(N);
     
@@ -190,7 +190,7 @@ function Laguerre_quad(f_o,s)
     return res
 end
 
-function two_sided_Laguerre_quad(f_o,s)
+function two_sided_Laguerre_quad(f_0,s)
     
     #
     # For integrals of the the ∫_0^∞ exp(-x)*g(x)dx, here f(x) = exp(-x)*g(x)
@@ -201,17 +201,17 @@ function two_sided_Laguerre_quad(f_o,s)
     
     N = s.N 
 
-    f = x -> map(f_o,map(s.c,x)) .* exp(x)  .* map(s.w,x); # map to real line
-    f_oppo = x -> map(f_o,map(s.c,-x)) .* exp(x)  .* map(s.w,-x); # map to real line
+    f = x -> map(f_0,map(s.c,x)) .* exp(x)  .* map(s.w,x); # map to real line
+    f_0ppo = x -> map(f_0,map(s.c,-x)) .* exp(x)  .* map(s.w,-x); # map to real line
     
     x, w = gausslaguerre(N);
     
-    res = sum(w .* map(f,x)) + sum(w .* map(f_oppo,x))
+    res = sum(w .* map(f,x)) + sum(w .* map(f_0ppo,x))
     
     return res
 end
 
-function Hermite_quad(f_o,s)
+function Hermite_quad(f_0,s)
     
     #
     # For integrals of the the ∫_{-∞}^∞ exp(-x^2)*g(x)dx, here f(x) = exp(-x^2)*g(x)
@@ -223,7 +223,7 @@ function Hermite_quad(f_o,s)
     
     N = s.N 
 
-    f = x -> map(f_o,map(s.c,x)) .* exp(x .^ 2)  .* map(s.w,x); # map to real line
+    f = x -> map(f_0,map(s.c,x)) .* exp(x .^ 2)  .* map(s.w,x); # map to real line
 
     a = zeros(N);
     b = sqrt.((1:N) ./ 2)
@@ -235,4 +235,19 @@ function Hermite_quad(f_o,s)
     
     return res
 
+end
+
+function Levin_quad(f,g,Dg,s)
+    a = s.a
+    b = s.b
+    SP = Ultraspherical(0.0,UltraMappedInterval(a,b,1.0)); 
+    SP1 = Ultraspherical(1.0,UltraMappedInterval(a,b,1.0));
+    F = BasisExpansion(f,SP1)
+    M = Multiplication(x -> Dg(x));
+    D = Derivative();
+    Op = D + Conversion(SP1)*M
+    lbdry = Truncation(FixedGridValues([a],ChebyshevMappedInterval(a,b)) |> Conversion, 4);
+    #u = ((lbdry ⊘ Op)*SP)\[[0]; F]
+    u = \((Op)*SP,F)
+    u(b)*exp(g(b)) - u(a)*exp(g(a))
 end

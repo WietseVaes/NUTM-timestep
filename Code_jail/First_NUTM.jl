@@ -34,6 +34,29 @@ function First_Int(w,x,t,f,N,L)
     return Res ./ (2*π)
 end
 
+
+
+
+function int_after_IBP(w,x,t,f,g,s)
+    # Middle piece
+    R = 1
+    s_out = curv(t-> exp(1im*t),0,π,t-> 1im*exp(1im*t),1000)
+    s_in = curv(x->x,0,L
+    )
+    ff_ft = k -> Levin_ft(f,kkk.(k),s);
+
+    SP = Ultraspherical(0.0,UltraMappedInterval(a,b,1.0)); 
+    SP1 = Ultraspherical(1.0,UltraMappedInterval(a,b,1.0));
+    F = BasisExpansion(f,SP1)
+    M = Multiplication(x -> -1im*k);
+    D = Derivative();
+    Op = D + Conversion(SP1)*M
+    #lbdry = Truncation(FixedGridValues([a],ChebyshevMappedInterval(a,b)) |> Conversion, 4);
+    #u = ((lbdry ⊘ Op)*SP)\[[0.0]; F]
+    u = \((Op)*SP,F)
+    u(b)*exp(-1im*k*b) - u(a)*exp(-1im*k*a)
+end
+
 function Second_Int(w,x,t,f,N,L)
     Res = complex.(zeros(length(x),length(t)));
     if isa(x,Number)

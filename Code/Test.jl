@@ -1,23 +1,38 @@
 using Plots
-using OperatorApproximation
+#using OperatorApproximation
 include("../Code_jail/Master_func.jl")
 using .Master_func
 
-f = x -> sin.(π*x);
+L = 2;
+s = curv(x->x, 0, L, x->1,400);
+f = x -> sin.(pi*x); f_ft = k -> -π*(1im*sin.(2*k)-cos(2*k)+1)/(k^2-π^2);
+f = x -> sin.(pi*x).^2; f_ft = k -> -(2 * π^2 * (sin(2 * k) + 1im * cos(2 * k) - 1im)) / (k * (k^2 - 4 * π^2));
+R = 2;
+B = 1;
+kkk = ξ -> (B .* ξ .- 2*R .+ B)./(ξ .- 1);
+ff_ft = k -> Levin_ft(f,kkk.(k),s);
+
+dk = .001;
+kk = -1:dk:1-dk;
+@time ff_ft(kk);
+plot(kk,imag.(f_ft.(kkk.(kk))-ff_ft(kk)));plot!(kk,real.(f_ft.(kkk.(kk))-ff_ft(kk)))
+
+
+f = x -> cos.(π*x);
 
 Nx = 1000;
 w =  [1];
 L = 2;
-t = 1e-2;
+t = 1e-5;
 x = collect(L/Nx:L/(Nx):L-L/Nx);
 #xx = 0:L/(Nx):L;
 
 
 Nx = length(x);
 
-realsol = (x,t) -> exp(-π^2*t)*sin(π*x);
-fL = t -> exp.(- pi^2 .* t) .* sin.(π*0);
-fR = t -> exp.(- pi^2 .* t) .* sin.(π*L);
+realsol = (x,t) -> exp(-π^2*t) .* f.(x);
+fL = t -> exp.(- pi^2 .* t) .* f(0);
+fR = t -> exp.(- pi^2 .* t) .* f.(L);
 
 Rsol = realsol.(x,t);
 RRsol = realsol.(x,2*t);
@@ -29,46 +44,7 @@ plot(x, abs.(Res.(x)-Rsol), label = "", yaxis =:log)
 plot(x, real.(Res.(x)), label = "real")
 plot!(x, imag.(Res.(x)), label = "imag")
 maximum(abs.(Res.(x)-Rsol))
-Ress = Heat_eq(w, t, Res, s -> fL(s+t), s -> fR(s+t), L);
 dt = time()-t1
-
-plot(x, abs.(Ress.(x)-RRsol), label = "", yaxis =:log)
-plot(x, real.(Ress.(x)), label = "real")
-plot!(x, imag.(Ress.(x)), label = "imag")
-maximum(abs.(Ress.(x)-RRsol))
-
-
-Nx = 1000;
-w =  [1];
-L = 3;
-t = 1e-2;
-x = collect(L/Nx:L/(Nx):L-L/Nx);
-f = x -> -x*(x-L);
-Sol = Heat_eq(w, 1, f, L);
-plot(x,real.(Sol.(x)))
-plot(x,imag.(Sol.(x)))
-
-f = x -> cos.(π*x);
-g = t -> exp.(- pi^2 .* t) .* cos.(π*0);
-g = t -> t .^0 .- 1 
-g(0)
-Nx = 200;
-Nt = 10;
-w =  [1];
-L = 2;
-T = 1;
-t = collect(T/Nt:T/(Nt):T-T/Nt);
-x = collect(L/Nx:L/(Nx):L-L/Nx);
-
-Sol = Complex.(zeros(length(x),length(t)));
-
-for i1 in eachindex(t)
-    Sol[:,i1] = Left_bd(w, x, t[i1], g, 3,L);
-end
-contourf(t,x, real.(Sol))
-Sol
-
-
 
 using OperatorApproximation, Plots, SpecialFunctions
 
@@ -81,7 +57,7 @@ Op = D^2 - Conversion(sp2)*M
 lbdry = FixedGridValues([-R],ChebyshevMappedInterval(-R,R)) |> Conversion;
 rbdry = FixedGridValues([R],ChebyshevMappedInterval(-R,R)) |> Conversion;
 setbasis(sp)
-u = (lbdry ⊘ rbdry ⊘ Op)\[[airyai(-R)];[airyai(R)]; x->0]
+u = (lbdry ⊘ rbdry ⊘ Op)\[[airyai(-R)];[airyai(R)]; [0;0]]
 u = u[1]
 u(-R)-airyai(-R)
 plot(u;dx=0.0001)
