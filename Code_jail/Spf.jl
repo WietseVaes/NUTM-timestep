@@ -100,6 +100,24 @@ function Deformation(path::Vector,cate::Vector,w::Vector,xθ::Number,dir::Number
     func, Dfunc, tt, meth = fpath_maker(path,cate)
     Deformation(path,cate,func, Dfunc, tt, meth,w,xθ,dir)
 end 
+ω(w) = (z) -> sum([w[i] .* z.^(i + 1) for i in eachindex(w)])
+DDω(w) = (z) -> sum([(i + 1) * i .* w[i] .* z.^(i-1) for i in eachindex(w)])
+Φ(inp, k) = begin
+    ww = inp.w; xx = inp.x; tt = inp.t;
+    ω_kt = ω(ww)(k .* tt.^(-1 / (length(ww) + 1)))
+    return 1im*k .- ω_kt .* tt ./ xx 
+end
+DDΦ(inp, k) = begin
+    ww = inp.w; xx = inp.x; tt = inp.t;
+    DDω_kt = DDω(ww)(k .* tt.^(-1 / (length(ww) + 1))) .* tt.^(-2 / (length(ww) + 1))
+    return - DDω_kt .* tt ./ xx 
+end
+P(inp, k) = begin
+    xx = inp.x; 
+    result = exp(xx * Φ(inp, k))
+    result ≈ 0.0 ? 0 : result
+end
+
 function tick_maker(y)
     exponent = Int.(floor.(log10.(abs.(y))))
     if maximum(abs.(exponent)) < 3
@@ -173,7 +191,7 @@ function DomainPlot(D::Deformation,x::Number,t::Number)
     xθ = D.xθ
     # Create a mask for points where real((x + yi)^2) < 0
     #mask = [real(-1im*ω(ww)(zi)) >= 0 for zi in z]
-    mask = [real(ww[end]*(zi)^n) < 0 for zi in z]
+    mask = [real(ω(ww)(zi)) < 0 for zi in z]
 
     mmask = [ NaN for zi in z]
     mmask[mask] .= 0
@@ -221,23 +239,7 @@ function PathPlot(D::Deformation, integrand::Function)
     pl = plot(plts[1], plts[2], layout = grid(2, 1),size=(800,500));
 
 end 
-ω(w) = (z) -> sum([w[i] .* z.^(i + 1) for i in eachindex(w)])
-DDω(w) = (z) -> sum([(i + 1) * i .* w[i] .* z.^(i-1) for i in eachindex(w)])
-Φ(inp, k) = begin
-    ww = inp.w; xx = inp.x; tt = inp.t;
-    ω_kt = ω(ww)(k .* tt.^(-1 / (length(ww) + 1)))
-    return 1im*k .- ω_kt .* tt ./ xx 
-end
-DDΦ(inp, k) = begin
-    ww = inp.w; xx = inp.x; tt = inp.t;
-    DDω_kt = DDω(ww)(k .* tt.^(-1 / (length(ww) + 1))) .* tt.^(-2 / (length(ww) + 1))
-    return - DDω_kt .* tt ./ xx 
-end
-P(inp, k) = begin
-    xx = inp.x; 
-    result = exp(xx * Φ(inp, k))
-    result ≈ 0.0 ? 0 : result
-end
+
 function MinN(X, Y,N)
     out = []
     for i1 in eachindex(X)
@@ -417,11 +419,10 @@ function get_direction(CP_in,CP_bd,start_bd_ind,stop_bd_ind)
     if mod(ind+(dir-1),length(CP_in))+1 == start_bd_ind[2]
         ind = start_bd_ind[2]
     end
-
+    starting = ind;
     if ind in stop_bd_ind && CP_in[ind]
         return dir, starting, ind 
     end
-
     while ~(ind in stop_bd_ind) && CP_in[ind]
         ind = mod(ind+(dir-1),length(CP_in))+1
         if  ind in stop_bd_ind
@@ -727,10 +728,21 @@ function Integrand(inp, g)
     integrand = z -> g(z) * P(inp, z)
     return integrand, DD
 end
-function Residue(g,f,z)
+function Residue(g,f,z,N)
     F = z -> g.(z).*f.(z)
-    s = curv( t -> z .+ exp.(1im*t), 0, 2*π, t -> 1im*exp.(1im*t),500)
-    Clen_Curt(F,s)/(2*π*1im)
+    R = 1e-2;
+    s = curv( t -> z .+ R*exp.(1im*t), 0, 2*π, t -> R*1im*exp.(1im*t),500)
+    if false
+        res = Clen_Curt(F,s)
+    else
+        t = LinRange(0,2*π,N)
+        dt = t[2]-t[1];
+        res = 0;
+        for i1 = 1:(N-1)
+            res += dt * F(s.c(t[i1]))*R*1im*exp.(1im*t[i1])
+        end
+    end
+    return res/(2im*π)
 end
 
 function SpecialFunction(w::Vector, x::Vector, t::Vector, start::Number, stop::Number, N::Number, gg::Function, Dgg::Vector, poles::Vector, m::Vector)
@@ -741,7 +753,6 @@ function SpecialFunction(w::Vector, x::Vector, t::Vector, start::Number, stop::N
     if real(stop^n*w[end]) < 0
         @warn "Deformation cannot be made: exponential growth at stop"
     end
- 
     base_inp = Input_sf(w,x[1] * t[1]^(-1/n)+ eps(),t[1],start,stop);
     DDD, init_dir, start_init_ind, stop_init_ind = Danger_zone_maker(base_inp)
     Res = Complex.(zeros(length(x),length(t)))
@@ -766,10 +777,9 @@ function SpecialFunction(w::Vector, x::Vector, t::Vector, start::Number, stop::N
             t1 = time();
 
             vals = My_Integrate(integrand, DD,N)
-
             for i3 = 1:length(m)
                 if m[i3] != -1
-                    vals -=  (init_dir * DD.dir < 0 && m[i3] < 0) ? 2 * π * 1im * Residue(z -> g(z), z-> P(inp, z), poles[i3]) : 0
+                    vals -=  (init_dir * DD.dir < 0 && m[i3] < 0) ? 2 * π * 1im * Residue(z -> g(z), z-> P(inp, z), poles[i3],500) : 0
                 else 
                     vals -=  (init_dir * DD.dir < 0) ? 2 * π * 1im ./ (Dgg[i3](poles[i3] * exp(-1im*xθ) * t[i2]^(-1/n))*exp(-1im*xθ) * t[i2]^(-1/n)) : 0
                 end
@@ -792,7 +802,7 @@ function SpecialFunction(w::Vector, x::Vector, t::Number, start::Number, stop::N
 end
 function SpecialFunction(w::Vector, xx::Vector, tt::Vector, m::Number, N::Number)
     g = z -> (1im*z).^m
-    Dg = z -> (1. * 1im).^(-m)
+    Dg = z -> 1. * 1im
     SpecialFunction(w, xx, tt,-1,1, N, g, [Dg], [0], [m])
 end
 function SpecialFunction(w::Vector, xx::Number, tt::Number, m::Number, N::Number)
@@ -803,12 +813,12 @@ function SpecialFunction(w::Vector, xx::Vector, tt::Number, m::Number, N::Number
     R = SpecialFunction(w, xx, [tt], m, N)
     R[:,1]
 end 
-function SpecialFunction(w::Vector, xx::Number, tt::Number, N::Number, gg::Function, poles::Vector, m::Vector)
-    R = SpecialFunction(w, [xx], [tt], N, gg, poles, m)
+function SpecialFunction(w::Vector, xx::Number, tt::Number, N::Number, gg::Function, Dgg::Vector, poles::Vector, m::Vector)
+    R = SpecialFunction(w, [xx], [tt], N, gg, Dgg, poles, m)
     R[1]
 end
-function SpecialFunction(w::Vector, xx::Vector, tt::Number, N::Number, gg::Function, poles::Vector, m::Vector)
-    R = SpecialFunction(w, xx, [tt], N, gg, poles, m)
+function SpecialFunction(w::Vector, xx::Vector, tt::Number, N::Number, gg::Function, Dgg::Vector, poles::Vector, m::Vector)
+    R = SpecialFunction(w, xx, [tt], N, gg, Dgg, poles, m)
     R[:,1]
 end 
 

@@ -92,7 +92,29 @@ function Clen_Curt(f,s)
 
     f_int = stand_int(f,s);
 
+    gd = UltraMappedInterval(-1,1,0.0);
+    sp = Ultraspherical(0.0,gd);
+    f_int =  BasisExpansion(f_int,sp);
+
+    f_coeffs = f_int.c
+    N = length(f_coeffs)
+    if sum(abs.(f_coeffs[N-1:N]))>=1e-12
+        @warn "Maximal amount of quadrature points insufficient: accuracy may be effected."
+    end
+
+    w = [ k % 2 == 0 ? 2. /(1. - k^2) * sqrt(2.) : 0. for k in 0:(N-1)]
+    w[1] = 2;
+    w[end-1:end] ./= 2
+    
+    return sum(w .* f_coeffs)
+end
+
+function Clen_Curt_old(f,s)
+
+    f_int = stand_int(f,s);
+
     (f_coeffs, N) = adaptive_quad(f_int,s.N)
+    f_coeffs|>display
     if sum(abs.(f_coeffs[N-1:N]))>=1e-11
         @warn "Maximal amount of quadrature points insufficient: accuracy may be effected."
     end

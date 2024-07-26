@@ -14,14 +14,14 @@ function curv(c::Function,a::Number,b::Number,w::Function,N::Number)
     curv(c,a,b,w,N,0,0)
 end
 
-function sp(x::Vector)
+function set_prec(x::Vector)
     BigFloat.(x,256)
 end
-function sp(x::Real)
+function set_prec(x::Real)
      BigFloat.(x,256)
 end
-function sp(x::Complex)
-    sp.(real.(x)) + 1im * sp.(imag.(x))
+function set_prec(x::Complex)
+    set_prec.(real.(x)) + 1im * set_prec.(imag.(x))
 end
 
 function standardChop(coeffs, tol = eps())
