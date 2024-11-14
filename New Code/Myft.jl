@@ -2,7 +2,7 @@ include("myquad.jl")
 include("Cheb.jl")
 using OperatorApproximation
 
-function naive_ft(f,s,k)
+function naive_ft(f,k,s)
 
     g = x -> exp.(-1im * k .* x) .* f.(x)
     res = Clen_Curt(g,s)
@@ -26,8 +26,8 @@ function IBP_ft(f,k,Nd)
         res += (-1. * 1im)^(i1-1) .* (g(1) * f(1) - g(-1) * f(-1)) ./ ((k) .^ (i1+1))
         f = Diff(f)
     end
-    s = curv(x->x,-1,1,x->1,200)
-    res += (-1im)^(Nd+1) .* Clen_Curt(x -> f.(x) .* g.(x),s) ./ ((k) .^ (Nd+1))
+    s = curv(x->x,-1,1,x->1,0)
+    res += (-1im)^(Nd+1) .* Clen_Curt(x -> f.(x) .* g.(x),s) ./ ((k) .^ (Nd+1),s)
    return res 
     
 end
@@ -89,19 +89,12 @@ function Levin_ft_col(f,ksa,s)
     end
     a = s.a;
     b = s.b;
-    gd = UltraMappedInterval(a,b,1.0);
-    sp = Ultraspherical(0.0,gd); 
-    sp1 = Ultraspherical(1.0,gd);
-    F = BasisExpansion(x -> f.(x),sp1)
-    D = Derivative();
-    gv = GridValues(gd);
-    E = Conversion(gv);
+
     #tf = true
     res = Complex.(0 .* ks)
     for i1 in eachindex(ks)
         k = ks[i1]
-        M = Multiplication(x -> 1im * k)
-        Op = E * D -  M * E
+
         if abs(k) < 30
             #"with boundary" |> display
             #bdry = Truncation(FixedGridValues([b],ChebyshevMappedInterval(a,b)) |> Conversion, 4);
@@ -118,7 +111,17 @@ function Levin_ft_col(f,ksa,s)
             #end
             res[i1] = res2
         else
-            u = \((Op)*sp,F)
+
+            gd = UltraMappedInterval(a,b,1.0);
+            
+            sp = Ultraspherical(0.0,gd); 
+
+            D = Derivative();
+            gv = GridValues(gd);
+            E = Conversion(gv);
+            M = Multiplication(x -> 1im * k)
+            Op = E * D -  M * E
+            u = \(Op*sp, x -> f.(x), 2) 
             res[i1] = u(b)*exp(-1im*k*b) - u(a)*exp(-1im*k*a)
             #bdry = Truncation(FixedGridValues([b],ChebyshevMappedInterval(a,b)) |> Conversion, 4);
             #u = ((bdry ⊘ Op)*SP)\[[0.0]; F]

@@ -1,0 +1,21 @@
+using OperatorApproximation
+
+psi = x -> x;
+xi = x-> x^2+1;
+
+f = x-> x
+
+sp = Ultraspherical(0.0,UltraMappedInterval(-1,1,1.0));
+sp1 = Ultraspherical(1.0,UltraMappedInterval(-1,1,1.0));
+F = BasisExpansion(f,sp1);
+
+Mpsi = Multiplication(psi);
+Mxi = Multiplication(BasisExpansion(xi,sp1));
+
+D = Derivative();
+COp = Mxi*D + Conversion(sp1)*Mpsi
+rbdry = FixedGridValues([1],ChebyshevMappedInterval(-1,1)) |> Conversion;
+Q  =  \(((rbdry ⊘ COp)*sp),[[0.0]; F]);
+
+sol = x-> 1 .- sqrt(2)./sqrt.(x.^2+1)
+plot(-1:.1:1,Q.(-1:.1:1)-Sol.(-1:.1:1))

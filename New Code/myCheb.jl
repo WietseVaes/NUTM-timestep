@@ -1,6 +1,7 @@
 using LinearAlgebra
 
-include("../Code_jail/myquad.jl")
+include("../New Code/myquad.jl")
+include("../New Code/Misc.jl")
 
 #   Chebyshev discrete Polynomials at x and Coefficients
 #   ≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡≡
@@ -132,63 +133,6 @@ function Cheb_Der(f, x, k, N = 100)
     uk = Pk*D*c;
 end
 
-#   Trials
-#   ≡≡≡≡≡≡≡≡
-
-#   FT through Fokas paper
-#   ========================
-# 
-#   Possible problems: binomial is to big to compute
-
-function α_cheb(m)
-    a = zeros(m+1,1);
-    
-    if m>0
-        a[1] = (-1)^m;
-
-        a[2] = (-1)^(m+1) * m^2;
-        n = 3:(m+1)
-        for n = 3:(m+1)
-            for k = 1:(m-n+2)
-                j = k:(n+k-3)
-                a[n] += binomial(BigInt(n+k-3), BigInt(k-1)) * prod(m .- j)
-            end
-            a[n] *= (-1)^(m + n - 1) * 2^(n - 2) * m
-        end
-    else
-        a[1] = (-1)^m;
-    end
-    return a
-    
-end
-
-function Fokas_Cheb_ft(f, N, λ)
-   
-    λ = complex(λ)
-    
-    c = Ultra_spherical_coeff(f, N, λ0)
-    res = λ .* 0 
-    
-    for m = 0:(N-1)
-        res_tmp = λ .* 0
-        for i1 in eachindex(λ)
-            if λ[i1]!=0
-                n = 1:(m+1)
-                res_tmp[i1] = sum(α_cheb(m) .* (exp.(1im .* λ[i1])./((1im .* λ[i1]).^n) .+ (-1).^(n .+ m).*exp.(-1im .* λ[i1])./((1im .* λ[i1]).^n)))
-            else
-                if m != 1
-                    res_tmp[i1] = ((-1)^(m+1)-1)/(m^2-1);
-                else 
-                    res_tmp[i1] = 0;
-                end
-            end
-        end
-        res += c[m+1] .* res_tmp;
-    end
-        
-    return res
-end
-
 #   FT through three-term-recurrence
 #   ==================================
 # 
@@ -255,7 +199,8 @@ function Cheb_ft(N::Number,k::Number,λ::Number,N_quad::Number)
         b = 0 .* b .+ 0.5
     end
     
-    Dsinc = map(set_precision,complex(2 .* Der_sinc(k,N, N_quad)))
+    Dsinc = map(set_precision,complex(2 .* Der_sinc(k,N,N_quad)))
+    nx = size(Dsinc,1); ny = size(Dsinc,2)
     
     T = map(set_precision,complex(zeros(length(k),N+1,N)));
     T[:,:,1] = Dsinc;
@@ -277,33 +222,4 @@ end
 
 function Cheb_ft(N::Number,k::Number,λ::Number)
     Cheb_ft(N,k,λ,0)
-end
-
-#   Failed
-#   ≡≡≡≡≡≡≡≡
-# 
-#   Fdersinc: unstable
-#   ––––––––––––––––––––
-
-function F_der_sinc(x,N)
-    
-    # g(x) = xf(x) = sin(x)
-    # f^(n) = (g^(n)-\sum_{j=0}^{n-1}f^(j))/x
-    
-    n = length(x);
-    Dsinc = zeros(n,N+1);
-    
-    Dsinc[:,1] = [k == 0 ? 1 : sin.(k) ./ k for k in x]
-    
-    sum_prev = Dsinc[:,1];
-    
-    for i1 = 1:N
-            
-        Dsin = sin.(pi*i1/2 .+ x)
-        
-        atzero = mod(i1,2) ==0 ? (-1)^(i1/2)/(i1+1) : 0
-        
-        Dsinc[:,i1+1] = [x[i2] == 0 ? atzero : (Dsin[i2] - i1*Dsinc[i2,i1]) ./ x[i2] for i2 in eachindex(x)]
-    end
-    return Dsinc
 end

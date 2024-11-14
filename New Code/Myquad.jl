@@ -1,37 +1,6 @@
 using FastGaussQuadrature, OperatorApproximation, SpecialFunctions
 include.(("Cheb.jl","Misc.jl"))
 
-function adaptive_quad(f,Nmax)
-    Ns = round.(Int,(1:6) ./ 6 .*Nmax)
-    f_ult = [];
-    N = 0;
-    for NN in Ns
-        f_ult = UltraFun(0,f,NN-1);
-        N = standardChop(f_ult.c)
-        if  N != NN
-            break
-        end
-    end
-    if mod(N,2) != 0
-        N += 1 
-    end
-    return f_ult.c[1:min(N,length(f_ult.c))], min(N,length(f_ult.c))
-end
-
-function Gauss_grid_weights(a,b)
-    
-    J = SymTridiagonal(a,b[1:(end-1)]);
-    
-    xgrid, U = eigen(J);
-    
-    U = transpose(sign.(U[1,:])) .* U
-    
-    w = abs.(U[1,:]).^2
-    
-    return xgrid, w, U
-    
-end
-
 #   The quads
 #   ≡≡≡≡≡≡≡≡≡≡≡
 
@@ -53,75 +22,21 @@ function stand_int(f,s)
     return g
 end
 
-function Clen_Curt_no_adapt(f,s)
-    
-    # function f
-    
-    #object s with: curve - c
-    #               start value - a
-    #               end value - b
-    #               curve derivative - w
-    #               number of quadrature points - N
-    
-    N = s.N
-
-    if mod(N,2) != 0
-       N -= 1 
-    end
-
-    #fc = UltraFun(0,f,N)
-    #NN = length(fc.c)
-    #if sum(abs.(fc.c[NN-1:NN])) > 1e-12
-        #@warn "The integrand is incorrect or not approximated well enough"
-    #end
-    
-    f_int = stand_int(f,s)
-    n = 0:N/2;
-    D = 2 * cos.(2* transpose(n) .* n * pi/N)/N;
-    D[1,:] = D[1,:] .* 0.5;
-    d = [1; 2 ./ (1 .- (2:2:N).^2)];
-    w = D * d;
-    x = cos.( (0:N) * π / N );
-    w = [w;w[length(w)-1:-1:1]];
-    res = dot(w,f_int.(x))
-    
-    return res
-end
-
 function Clen_Curt(f,s)
 
     f_int = stand_int(f,s);
 
     gd = UltraMappedInterval(-1,1,0.0);
     sp = Ultraspherical(0.0,gd);
+    
     if s.N == 0
         f_int =  BasisExpansion(f_int,sp);
     else
-        f_int =  BasisExpansion(f_int,sp,s.N);
+        f_int =  BasisExpansion(f_int,sp, s.N);
     end
 
     f_coeffs = f_int.c
     N = length(f_coeffs)
-    if sum(abs.(f_coeffs[N-1:N]))>=1e-12
-        @warn "Maximal amount of quadrature points insufficient: accuracy may be effected."
-    end
-
-    w = [ k % 2 == 0 ? 2. /(1. - k^2) * sqrt(2.) : 0. for k in 0:(N-1)]
-    w[1] = 2;
-    w[end-1:end] ./= 2
-    
-    return sum(w .* f_coeffs)
-end
-
-function Clen_Curt_old(f,s)
-
-    f_int = stand_int(f,s);
-
-    (f_coeffs, N) = adaptive_quad(f_int,s.N)
-    f_coeffs|>display
-    if sum(abs.(f_coeffs[N-1:N]))>=1e-11
-        @warn "Maximal amount of quadrature points insufficient: accuracy may be effected."
-    end
 
     w = [ k % 2 == 0 ? 2. /(1. - k^2) * sqrt(2.) : 0. for k in 0:(N-1)]
     w[1] = 2;

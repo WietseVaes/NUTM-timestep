@@ -4,34 +4,107 @@ include.(("Misc.jl","Spf.jl","Myquad.jl"))
 using OperatorApproximation
 
 
-function First_Int(w,x,t,f,N,L)
-    
+function Common_Int(w, x, t, start, stop, ψ, α, f, g, Dg, poles, ms, N, L, PD)
+
     Res = complex.(zeros(length(x),length(t)));
 
-    D = Derivative(1);
-    SF = (m,x,t) -> SpecialFunction(w, x, t, -m, 500); #SF = ∫exp(ixk-w(k)t)*(ik)^m
-    t1 = time()
+    α₀ = α(0);
+    α₁ = α(1)-α₀;
+    SF = (m,x,t) -> SpecialFunction(w, x, t, start, stop, 500, k -> g(m,k), Dg, poles, ms(m))
+
+    D = Derivative(1);    
+
     for i1 = 0:(N-1)
-        Res += (f(0)*SF(i1+1,x,t)-f(L)*SF(i1+1,x .- L,t));
+        Res += (f(0)*SF(i1+1, ψ.(x), t) - f(L)*exp(-1im*α₀*L)*SF(i1+1, ψ.(x) .- α₁*L, t));
         f = D*f;
     end
-    SP_time = time()-t1;
+
+    #SP_time = time()-t1;
 
     s = curv(x->x,0,L,x->1,500)
-
+    "pre quad" |> display
     for i1 in eachindex(x)
         for i2 in eachindex(t)
-            
-            Res[i1,i2] += int_after_IBP_trunc_2(w,x[i1],t[i2],f,k -> 1 ./ (1im*k) .^ N,x->x,L);
-            #Res[i1,i2] += int_after_IBP_col(w,x[i1],t[i2],f,k -> 1 ./ (1im*k) .^ N,x->x,L);
 
-            #Res[i1,i2] += Clen_Curt(z -> f.(z).*SF.(N,x[i1] .- z,t[i2]),s)
+            # if PD[1] == -1
+                Res[i1,i2] += int_after_IBP_col(w, x[i1], t[i2], f, k -> g(N,k), ψ, α, L, PD);
+                #Res[i1,i2] += int_after_IBP_trunc_2(w, x[i1], t[i2], f, k -> g(N,k), ψ, α, L);
+            # else
+            #     Res[i1,i2] += Clen_Curt(z -> exp(-1im*α₀*z) .* f.(z).*SF.(N,ψ(x[i1]) .- α₁ * z,t[i2]),s)
+            # end
+
+            
+            #Res[i1,i2] += int_after_IBP_trunc_2(w, x[i1], t[i2], f, k -> g(N,k), ψ, α, L);
+
+            #Res[i1,i2] += int_after_IBP_col(w,x[i1],t[i2],f,k -> 1 ./ (1im * k) .^ N,x->x,L);
+
+            #Res[i1,i2] += Clen_Curt(z -> exp(-1im*α₀*z) .* f.(z).*SF.(N,ψ(x[i1]) .- α₁ * z,t[i2]),s)
 
         end
     end
-
+    "Post quad" |>display
 
     return Res ./ (2*π)
+
+end
+
+
+function Heat_eq(w::Vector,x::Vector,t::Vector,f_init::Function,fL::Function,fR::Function,L::Number)
+
+    N_ft = 0;
+    N_quad = 0;
+    N = 4;
+
+
+    gd = UltraMappedInterval(0.0,L,0.0);
+    sp = Ultraspherical(0.0,gd);    
+    f =  BasisExpansion(f_init,sp);
+
+    ψ = x -> x;
+    α = k -> k;
+    g = (m,k) -> 1 ./ (1im*α(k)) .^ m;
+    Dg = [ k-> 1im*(α(1)-α(0))];
+    poles = [-α(0)/(α(1)-α(0))];
+    ms = m -> -m;
+    start = -1; stop  = 1;
+
+    Int1 = Common_Int(w, x, t, -1, 1, ψ, α, f, g, Dg, poles, ms, N, L, 1 )
+
+    ψ = x -> x .+ 2*L;
+    α = k -> k;
+    g = (m,k) -> 1 ./ ((exp.(2im*k*L) .- 1) .* (1im*α(k)) .^ m);
+    Dg = [k -> 0];
+    poles = [];
+    ms = m -> [];
+    start = -1+1im; stop = 1+1im;
+    
+    Int2_1 = Common_Int(w, x, t, start, stop, ψ, α, f, g, Dg, poles, ms, N, L, 0);
+
+    ψ = x -> x;
+    α = k -> -k;
+
+    Int2_2 = Common_Int(w, x, t, start, stop, ψ, α, f, g, Dg, poles, ms, N, L, 0);
+
+    ψ = x -> x .- 2*L;
+    α = k -> k;
+    g = (m,k) -> 1/((1 .- exp.(-2im*k*L)).*(1im*α(k)).^m)
+    Dg = [k -> 0];
+    poles = [];
+    ms = m -> [];
+    start = 1-1im; stop = -1-1im;
+    
+    Int3_1 = Common_Int(w, x, t, start, stop, ψ, α, f, g, Dg, poles, ms, N, L, 0);
+
+    ψ = x -> x .- 2*L;
+    α = k -> -k;
+
+    Int3_2 = Common_Int(w, x, t, start, stop, ψ, α, f, g, Dg, poles, ms, N, L, 0);
+
+    Res = Int1 - Int2_1 - Int2_2 - Int3_1 - Int3_2
+
+    wtilde = [w[i1+1] * (-1)^(i1) for i1 = 0:(length(w)-1)]
+    Res += bd_cond(w,x,t,fL,4,L) + bd_cond(wtilde,L .- x,t,fR,4,L)
+
 end
 
 ω(w) = (z) -> sum([w[i] .* z.^(i + 1) for i in eachindex(w)])
@@ -204,18 +277,19 @@ function int_after_IBP_map_2(w,x,t,f,g,ψ,L)
     Left_int + Center_int + Right_int
 end
 
-function int_after_IBP_trunc_2(w,x,t,f,g,ψ,L)
+function int_after_IBP_trunc_2(w,x,t,f,g,ψ,α,L)
 
     n = length(w);
 
-    s_ft = curv(x->x,0,L,x->1,200)
-    f_ft = k -> Levin_ft(f,k,s_ft);
+    s_ft = curv(x->x,0,L,x->1,0)
+    f_ft = k -> Levin_ft(f,α(k),s_ft);
     # Middle piece
     #R = (ψ(x)/t).^(1/n)
-    R = .1
-    s_out = curv(t -> R*exp.(1im*(pi-t)),0,π,t -> -1im*R*exp.(1im*(pi-t)),500)
+    R = 1
+    s_out = curv(t -> R*exp.(1im*(pi-t)),0,π,t -> -1im*R*exp.(1im*(pi-t)),0)
     Center_int = Clen_Curt(z -> f_ft.(z) .* exp.(1im*z*ψ(x)-ω(w).(z)*t).*g.(z),s_out)
-    Center_int = 0;
+    "Center_int"|>display
+    Center_int |> display
     InfR = 400.
     RHS = (u,f_ft) -> g.(u) .* f_ft(u) .* exp.(-real.(ω(w)(u) .* t))
     sp = Ultraspherical(0.0,UltraMappedInterval(R,InfR,1.0)); 
@@ -232,6 +306,7 @@ function int_after_IBP_trunc_2(w,x,t,f,g,ψ,L)
     Q = \(((rbdry ⊘ Opp)*sp),[[0.0]; F],2*length(F.c));
     Right_int = -Q(R)*exp(1im*(R*ψ(x)-imag.(ω(w)(R))*t))
     "Right"|>display
+    Right_int|>display
     #Left integral
     sp = Ultraspherical(0.0,UltraMappedInterval(-InfR,-R,1.0)); 
     sp1 = Ultraspherical(1.0,UltraMappedInterval(-InfR,-R,1.0));
@@ -243,130 +318,82 @@ function int_after_IBP_trunc_2(w,x,t,f,g,ψ,L)
     Q = \(((rbdry ⊘ Op)*sp),[[0.0]; F],2*length(F.c));
     Left_int = Q(-R)*exp(1im*(-R*ψ(x)-imag.(ω(w)(-R))*t))
     "Left"|>display
+    Left_int|>display
     Left_int + Center_int + Right_int
 end
 
-function int_after_IBP_col(w,x,t,f,g,ψ,L)
+function int_after_IBP_col(w,x,t,f,g,ψ, α,L,PD)
 
     n = length(w);
 
     s_ft = curv(x->x,0,L,x->1,200)
     f_ft = k -> Levin_ft_col(f,k,s_ft);
-    # Middle piece
+
+    # Middle piece(s)
+    R = 1;
+
+    Res = 0;
+    for i1 = 1:2:length(PD) # Only works for monomials
+        "i1:"|>display
+        i1 |>display
     #R = (ψ(x)/t).^(1/n)
-    R = .5
-    s_out = curv(t -> R*exp.(1im*(pi-t)),0,π,t -> -1im*R*exp.(1im*(pi-t)),500)
-    "center pre"|>display
-    Center_int = Clen_Curt(z -> f_ft.(z) .* exp.(1im*z*ψ(x)-ω(w).(z)*t).*g.(z),s_out)
-    "center post"|>display
-    InfR = 400.
-    RHS = (u,f_ft) -> g.(u) .* f_ft(u) .* exp.(-real.(ω(w)(u) .* t))
-    gd = UltraMappedInterval(R,InfR,1.0);
-    sp = Ultraspherical(0.0,gd); 
-    sp1 = Ultraspherical(1.0,gd);
-    F = BasisExpansion(u -> RHS(u,f_ft),sp1);
+        θ1 = angle(PD[i1]);
+        θ2 = angle(PD[i1+1]);
 
-    gv = GridValues(gd);
-    E = Conversion(gv);
+        s_out = curv(t -> R*exp.(1im*(θ2 * t + (1-t)*θ1)),0,1,t -> (θ2-θ1)*1im*R*exp.(1im*(θ2 * t + (1-t)*θ1)),500)
 
-    M_fun = u -> 1im*(ψ(x)-imag.(Dω(w)(u)) .*t );
-
-    M = Multiplication(M_fun);
-
-    D = Derivative();
-    Opp = E*D + M*E
-    rbdry = FixedGridValues([InfR],ChebyshevMappedInterval(R,InfR)) |> Conversion;
-    Q = \(((rbdry ⊘ Opp)*sp),[[0.0]; F],2*length(F.c));
-    Right_int = -Q(R)*exp(1im*(R*ψ(x)-imag.(ω(w)(R))*t))
-    "Right"|>display
-    #Left integral
-    gd = UltraMappedInterval(-InfR,-R,1.0);
-    sp = Ultraspherical(0.0,gd); 
-    sp1 = Ultraspherical(1.0,gd);
-
-    gv = GridValues(gd);
-    E = Conversion(gv);
-
-    F = BasisExpansion(u -> RHS(u,f_ft),sp1);
-
-    Op = E*D + M*E
-    rbdry = FixedGridValues([-InfR],ChebyshevMappedInterval(-InfR,-R)) |> Conversion;
-    Q = \(((rbdry ⊘ Op)*sp),[[0.0]; F],2*length(F.c));
-    Left_int = Q(-R)*exp(1im*(-R*ψ(x)-imag.(ω(w)(-R))*t))
-    "Left"|>display
-    Left_int + Center_int + Right_int
-end
+        intC = Clen_Curt(z -> f_ft.(z) .* exp.(1im*z*ψ(x)-ω(w).(z)*t).*g.(z),s_out)
+        "Center_int"|>display
+        intC |> display
 
 
+        InfR = 400.
+        gd = UltraMappedInterval(R,InfR,1.0);
+        sp = Ultraspherical(0.0,gd); 
+        gv = GridValues(gd);
+        E = Conversion(gv);
+        bdry = FixedGridValues([InfR],ChebyshevMappedInterval(R,InfR)) |> Conversion;
+        D = Derivative();
 
-function Second_Int(w,x,t,f,N,L)
-    Res = complex.(zeros(length(x),length(t)));
-    if isa(x,Number)
-       Res = 0+0im; 
-    end
-    g = (m,k) -> 1/((exp.(2im*k*L) .- 1).*(1im*k).^m)
-    ms = m -> [];
-    poles = []
-    Dg = [k->0; k->2im*L*exp.(2im*k*L).*(1im*k); k->2im*L*exp.(2im*k*L).*(1im*k); k->2im*L*exp.(2im*k*L).*(1im*k); k->2im*L*exp.(2im*k*L).*(1im*k); k->2im*L*exp.(2im*k*L).*(1im*k); k->2im*L*exp.(2im*k*L).*(1im*k); k->2im*L*exp.(2im*k*L).*(1im*k); k->2im*L*exp.(2im*k*L).*(1im*k)]
-    start = -1+1im;stop = 1+1im;
-    
-    D = Derivative(1);
-    SF = (m,x,t) -> SpecialFunction(w, x, t,start,stop,500,k -> g(m,k), Dg, poles, ms(m)); #SF = ∫exp(ixk-w(k)t)*(ik)^m
-    
-    for i1 = 0:(N-1)
-        Res += (f(0)*SF(i1+1,x .+ 2*L,t)-f(L)*SF(i1+1,x .+ L,t));
-        Res += (f(0)*SF(i1+1,x,t)-f(L)*SF(i1+1,x .+ L,t));
-        f = D*f;
+        
+        M_fun = u -> 1im*(ψ(x)-imag.(Dω(w)(u)) .*t );
+        RHS = (u) -> g.(u) .* f_ft(u) .* exp.(-real.(ω(w)(u) .* t))
+        
+        # The left an right integral turn out to be treated the same
+        ML = Multiplication(u -> exp(1im*θ1)*M_fun.(u*exp(1im*θ1)));
+        MR = Multiplication(u -> exp(1im*θ2)*M_fun.(u*exp(1im*θ2)));
+
+        OppL = E*D + ML*E;
+        OppR = E*D + MR*E;
+        plot(real.(collect(R:10:InfR) .* exp(1im*θ1)),imag.(collect(R:10:InfR) .* exp(1im*θ1)))
+        plot!(real.(collect(R:10:InfR) .* exp(1im*θ2)),imag.(collect(R:10:InfR) .* exp(1im*θ2)))|>display
+        plot(collect(R:InfR),abs.(RHS(collect(R:InfR)*exp(1im*θ1))), yaxis=:log, title = "Left integrand")|>display
+        "A"|>display
+        plot(collect(R:InfR),abs.(g.(collect(R:InfR)*exp(1im*θ1))), yaxis=:log, title = "g")|>display
+        "B"|>display
+        plot(collect(R:InfR),abs.(f_ft(collect(R:InfR)*exp(1im*θ1))), yaxis=:log, title = "ft")|>display
+        "C"|>display
+        plot(collect(R:InfR),abs.(exp.(-real.(ω(w)(collect(R:InfR)*exp(1im*θ1)) .* t))), yaxis=:log, title = "exp")|>display
+        "D"|>display
+
+        plot(collect(R:InfR),abs.(RHS(collect(R:InfR)*exp(1im*θ2))), yaxis=:log, title = "Right integrand")|>display
+        "E"|>display
+
+        QL = \(((bdry ⊘ OppL)*sp),[[0.0]; u -> RHS(u*exp(1im*θ1))]);
+        QR = \(((bdry ⊘ OppR)*sp),[[0.0]; u -> RHS(u*exp(1im*θ2))]);
+
+        intL = -exp(1im*θ1)*QL(R)*exp(1im*(R*exp(1im*θ1)*ψ(x)-imag.(ω(w)(exp(1im*θ1)*R))*t))
+        "Left"|>display
+        intL|>display
+        intR = -exp(1im*θ2)*QR(R)*exp(1im*(R*exp(1im*θ2)*ψ(x)-imag.(ω(w)(R*exp(1im*θ2)))*t))
+        "Right"|>display
+        intR|>display
+        Res += intC + intR - intL
+
     end
 
-    s = curv(x->x,0,L,x->1,200)
-    for i1 in eachindex(x)
-        for i2 in eachindex(t)
-            #Res[i1,i2] += int_after_IBP_trunc(w,x[i1],t[i2],f,k -> g(N,k), x->x .+ 2*L,x->1,L);
-            #Res[i1,i2] += int_after_IBP_trunc(w,x[i1],t[i2],f,k -> g(N,k), x->x, x->1, L, -1);
+    Res
 
-            Res[i1,i2] += Clen_Curt(z -> f.(z).*SF.(N,x[i1] .+ 2*L .- z,t[i2]),s)
-            Res[i1,i2] += Clen_Curt(z -> f.(z).*SF.(N,x[i1] .+ z,t[i2]),s)
-        end
-    end
-
-
-    return Res ./ (2*π)
-end
-
-function Third_Int(w,x,t,f,N,L)
-    Res = complex.(zeros(length(x),length(t)));
-    if isa(x,Number)
-       Res = 0+0im; 
-    end
-    g = (m,k) -> 1/((1 .- exp.(-2im*k*L)).*(1im*k).^m)
-    #ms = m -> -1 .* [m+1;1;1;1;1;1;1;1;1];
-    #poles = [0;-π/L;π/L;-2*π/L;2*π/L;-3*π/L;3*π/L;-4*π/L;4*π/L]
-    ms = m -> [];
-    poles = []
-    Dg = [k->0; k->2im*L*exp.(-2im*k*L).*(1im*k); k->2im*L*exp.(-2im*k*L).*(1im*k); k->2im*L*exp.(-2im*k*L).*(1im*k); k->2im*L*exp.(-2im*k*L).*(1im*k); k->2im*L*exp.(-2im*k*L).*(1im*k); k->2im*L*exp.(-2im*k*L).*(1im*k); k->2im*L*exp.(-2im*k*L).*(1im*k); k->2im*L*exp.(-2im*k*L).*(1im*k)]
-    start = 1-1im;stop = -1-1im;
-
-    D = Derivative(1);
-    SF = (m,x,t) -> SpecialFunction(w, x, t,start,stop,500,k -> g(m,k), Dg, poles, ms(m)); #SF = ∫exp(ixk-w(k)t)*(ik)^m
-
-    for i1 = 0:(N-1)
-        Res += (f(0)*SF(i1+1,x .- 2*L, t)-f(L)*SF(i1+1,x .- 3 * L,t));
-        Res += (f(0)*SF(i1+1,x .- 2*L, t)-f(L)*SF(i1+1,x .- L,t));
-        f = D*f;
-    end
-
-    s = curv(x->x,0,L,x->1,200)
-
-
-    for i1 in eachindex(x)
-        for i2 in eachindex(t)
-            Res[i1,i2] += Clen_Curt(z -> f.(z).*SF.(N,x[i1] .- 2*L .- z,t[i2]),s)
-            Res[i1,i2] += Clen_Curt(z -> f.(z).*SF.(N,x[i1] .- 2*L .+ z,t[i2]),s)
-        end
-    end
-
-    return Res ./ (2*π)
 end
 
 function bd_cond(w,x,t,fL,N,L)
@@ -397,24 +424,7 @@ function bd_cond(w,x,t,fL,N,L)
     return -1 .* Res ./ (π)
 end
 
-function Heat_eq(w::Vector,x::Vector,t::Vector,f_init::Function,fL::Function,fR::Function,L::Number)
 
-    gd = UltraMappedInterval(0.0,L,0.0);
-    sp = Ultraspherical(0.0,gd);    
-    f =  BasisExpansion(f_init,sp);
-
-    N = 4;
-
-    Int1 = First_Int(w,x,t,f,N,L);
-    Int2 = Second_Int(w,x,t,f,N,L);
-    Int3 = Third_Int(w,x,t,f,N,L);
-
-    Res = Int1 - Int2 - Int3
-
-    wtilde = [w[i1+1] * (-1)^(i1) for i1 = 0:(length(w)-1)]
-    Res += bd_cond(w,x,t,fL,4,L) + bd_cond(wtilde,L .- x,t,fR,4,L)
-
-end
 
 function Heat_eq(w::Vector,x::Number,t::Number,f_init::Function,fL::Function,fR::Function,L::Number)
 
@@ -454,9 +464,6 @@ function Heat_eq(w::Vector,t::Number,f_init::Function,fL::Function,fR::Function,
 
 end
 
-
-
-
 function Heat_eq(w::Vector,x::Vector,t::Vector,f_init::BasisExpansion,fL::Function,fR::Function,L::Number)
 
     gd = UltraMappedInterval(0.0,L,0.0);
@@ -465,16 +472,53 @@ function Heat_eq(w::Vector,x::Vector,t::Vector,f_init::BasisExpansion,fL::Functi
 
     N = 4;
 
-    Int1 = First_Int(w,x,t,f,N,L);
-    Int2 = Second_Int(w,x,t,f,N,L);
-    Int3 = Third_Int(w,x,t,f,N,L);
+    ψ = x -> x;
+    α = k -> k;
+    g = (m,k) -> 1 ./ (1im*α(k)) .^ m;
+    Dg = [ k-> 1im*(α(1)-α(0))];
+    poles = [-α(0)/(α(1)-α(0))];
+    ms = m -> [-m];
+    start = -1; stop  = 1;
 
-    Res = Int1 - Int2 - Int3
+    Int1 = Common_Int(w, x, t, -1, 1, ψ, α, f, g, Dg, poles, ms, N, L,[-1,1])
+
+    ψ = x -> x .+ 2*L;
+    α = k -> k;
+    g = (m,k) -> 1 ./ ((exp.(2im*k*L) .- 1) .* (1im*α(k)) .^ m);
+    Dg = [k -> 0];
+    poles = [];
+    ms = m -> [];
+    start = -1+1im; stop = 1+1im;
+    
+    Int2_1 = Common_Int(w, x, t, start, stop, ψ, α, f, g, Dg, poles, ms, N, L,[exp(3im/4*π),exp(1im/4*π)]);
+
+    ψ = x -> x;
+    α = k -> -k;
+
+    Int2_2 = Common_Int(w, x, t, start, stop, ψ, α, f, g, Dg, poles, ms, N, L,[exp(3im/4*π),exp(1im/4*π)]);
+
+    ψ = x -> x .- 2*L;
+    α = k -> k;
+    g = (m,k) -> 1/((1 .- exp.(-2im*k*L)).*(1im*α(k)).^m)
+    Dg = [k -> 0];
+    poles = [];
+    ms = m -> [];
+    start = 1-1im; stop = -1-1im;
+    
+    Int3_1 = Common_Int(w, x, t, start, stop, ψ, α, f, g, Dg, poles, ms, N, L,[exp(-1im/4*π),exp(-3im/4*π)]);
+
+    ψ = x -> x .- 2*L;
+    α = k -> -k;
+
+    Int3_2 = Common_Int(w, x, t, start, stop, ψ, α, f, g, Dg, poles, ms, N, L,[exp(-1im/4*π),exp(-3im/4*π)]);
+
+    Res = Int1 - Int2_1 - Int2_2 - Int3_1 - Int3_2
 
     wtilde = [w[i1+1] * (-1)^(i1) for i1 = 0:(length(w)-1)]
     Res += bd_cond(w,x,t,fL,4,L) + bd_cond(wtilde,L .- x,t,fR,4,L)
 
 end
+
 function Heat_eq(w::Vector,x::Number,t::Number,f_init::BasisExpansion,fL::Function,fR::Function,L::Number)
 
     Res = Heat_eq(w,[x],[t],f_init,fL,fR,L);
@@ -496,7 +540,6 @@ function Heat_eq(w::Vector,x::Number,t::Number,f_init::BasisExpansion,fL::Functi
     Res[1,1]
 
 end
-
 
 function Heat_eq(w::Vector,t::Number,f_init::BasisExpansion,fL::Function,fR::Function,L::Number)
 
